@@ -203,8 +203,8 @@ function renderChildren(parent: Component, children: ReactNode, childOrder: Comp
 }
 function _rerender(component: Component) {
   const rootComponent = component.root;
-  const nextGcFlag = 1 - (component.flags & 1);
   if ((rootComponent.flags & 2) === 0) {
+    const nextGcFlag = 1 - (component.flags & 1);
     rootComponent.flags = nextGcFlag | 2;
     requestAnimationFrame(() => {
       rootComponent.flags = nextGcFlag;
@@ -238,6 +238,7 @@ export function renderRoot(vnode: ValueOrVNode, getParent: () => HTMLElement) {
 // hooks
 /** the current component */
 let $component = {} as Component;
+const _rerenderHere = () => _rerender($component);
 export function useRerender() {
   const component = $component;
   return () => _rerender(component);
@@ -250,13 +251,26 @@ export function useHook() {
   }
   return $component.hooks[index];
 }
-export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
-  const hook = useHook();
-  if (hook.state == null) hook.state = defaultState;
-  const setState = (newState: T) => {
-    hook.state = newState;
-    _rerender($component.root);
-  }
-  return [hook.state, setState];
+type MutableRef<T> = {current: T};
+export function useRef<T>(defaultState: T) {
+  const ref = useHook() as MutableRef<T>;
+  if (ref.current == null) ref.current = defaultState;
+  return ref;
 }
-// TODO: more hooks
+export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
+  const ref = useRef(defaultState);
+  const setState = (newState: T) => {
+    ref.current = newState;
+    _rerenderHere();
+  }
+  return [ref.current, setState];
+}
+export function useEffect(callback: () => void, dependencies: any[] = []) {
+  const ref = useRef(null as any[] | null);
+  const prevDeps = ref.current;
+  if (prevDeps == null || prevDeps.length !== dependencies.length || prevDeps.some((v, i) => v !== dependencies[i])) {
+    ref.current = [...dependencies];
+    setTimeout(callback, 0);
+  }
+}
+// TODO: more hooks?

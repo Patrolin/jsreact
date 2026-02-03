@@ -1,8 +1,11 @@
-import { FC, renderRoot, useState } from "src/jsreact";
+import { FC, renderRoot, useEffect, useState } from "src/jsreact";
 import "docs/style.css";
 
 const App: FC<{ foobar: string }> = () => {
   const [state, setState] = useState(0);
+  useEffect(() => {
+    if (state % 2 === 1) setState(state + 1);
+  }, [state]);
   return (
     <div className="hello world" cssVars={{ foobar: 1 }} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       <button style={{ color: "black" }} onClick={() => setState(state - 1)}>
