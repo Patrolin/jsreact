@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strictNullChecks": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["src/*"]
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "src/jsreact",
+    "skipLibCheck": true
+  },
+  "include": ["node_modules/vite/client.d.ts", "**/*"]
+}
