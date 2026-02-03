@@ -1,4 +1,4 @@
-import { FC, ReactNode, useEffect, useState } from "jsreact";
+import { FC, ReactNode, useEffect, useState } from "react";
 import { render } from "react-dom";
 //import { Button } from "@mui/material";
 import "./style.css";
