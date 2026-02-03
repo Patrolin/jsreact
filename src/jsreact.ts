@@ -1,4 +1,4 @@
-import { FunctionComponent, LeafNode, Props, ReactNode, VNode } from "./jsx";
+import type { FunctionComponent, LeafNode, Props, ReactNode, VNode } from "./jsx.d.ts";
 export type FC<T = {}> = FunctionComponent<T>;
 
 type Component = {

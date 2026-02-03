@@ -5,6 +5,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			src: "/src",
+			docs: "/docs",
 		},
 	},
 	server: {

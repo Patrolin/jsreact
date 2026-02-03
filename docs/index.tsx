@@ -1,5 +1,5 @@
-import { FC, renderRoot, useState } from "src/jsreact/jsreact.mts";
-import "src/style.css";
+import { FC, renderRoot, useState } from "src/jsreact";
+import "docs/style.css";
 
 const App: FC = () => {
   const [state, setState] = useState(0);

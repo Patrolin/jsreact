@@ -1,7 +1,12 @@
+import * as CSS from "csstype";
+export interface CSSProperties extends CSS.Properties<string | number> {}
+
+type JsxKey = string | number | boolean;
 export type IntrinsicProps = {
   key?: JsxKey;
-  style?: Record<string, any>;
   attribute?: Record<string, any>;
+  className?: string[] | string;
+  style?: CSSProperties;
   cssVars?: Record<string, any>;
   onClick?: (event: MouseEvent) => void;
 }
@@ -41,6 +46,7 @@ declare global {
   namespace JSX {
     type Element = LeafNode;
     interface IntrinsicElements {
+      // TODO: maybe give types for input, label, img, link
       [tagName: string]: JSXProps;
     }
     interface ElementChildrenAttribute {

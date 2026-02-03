@@ -1,4 +1,4 @@
-import { VNode } from "./jsx";
+import type { VNode } from "./jsx.d.ts";
 
 export function jsxDEV(
   type: VNode["type"],
@@ -8,7 +8,6 @@ export function jsxDEV(
   source: VNode["source"],
   _self: any,
 ): VNode {
-  console.log()
   return { type, key, props: props ?? {}, source };
 }
 export const Fragment = undefined;

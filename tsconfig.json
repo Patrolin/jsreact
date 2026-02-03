@@ -10,11 +10,12 @@
     "checkJs": true,
     "baseUrl": ".",
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": ["src/*"],
+      "docs/*": ["docs/*"]
     },
     "jsx": "react-jsx",
-    "jsxImportSource": "src/jsreact",
+    "jsxImportSource": "src",
     "skipLibCheck": true
   },
-  "include": ["node_modules/vite/client.d.ts", "**/*"]
+  "include": ["node_modules/vite/client.d.ts", "src/**/*", "docs/**/*"]
 }
