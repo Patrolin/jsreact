@@ -239,19 +239,17 @@ export function renderRoot(vnode: ValueOrVNode, getParent: () => HTMLElement) {
 /** the current component */
 let $component = {} as Component;
 export const useRerender = () => () => _rerender($component);
-export function useHook() {
+export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
-    if ($component.prevHookIndex === 0) $component.hooks.push({});
+    if ($component.prevHookIndex === 0) $component.hooks.push(defaultState);
     else throw new RangeError(`Components must have a constant number of hooks, got: ${$component.hookIndex}, expected: ${$component.prevHookIndex}`);
   }
   return $component.hooks[index];
 }
 type MutableRef<T> = {current: T};
-export function useRef<T>(defaultState: T) {
-  const ref = useHook() as MutableRef<T>;
-  if (ref.current == null) ref.current = defaultState;
-  return ref;
+export function useRef<T>(defaultState: T): MutableRef<T> {
+  return useHook({current: defaultState});
 }
 export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
   const ref = useRef(defaultState);
@@ -261,12 +259,24 @@ export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
   }
   return [ref.current, setState];
 }
-export function useEffect(callback: () => void, dependencies: any[] = []) {
-  const ref = useRef(null as any[] | null);
-  const prevDeps = ref.current;
-  if (prevDeps == null || prevDeps.length !== dependencies.length || prevDeps.some((v, i) => v !== dependencies[i])) {
-    ref.current = [...dependencies];
+function areDependenciesDifferent(prevDeps: any[] | null, deps: any[] | null) {
+  // NOTE: `Object.is()` for correct NaN handling
+  return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
+}
+/** NOTE: prefer `useRef()` for better performance */
+export function useEffect(callback: () => void, dependencies: any[] | null = null) {
+  const ref = useHook({prevDeps: null as any[] | null});
+  if (areDependenciesDifferent(ref.prevDeps, dependencies)) {
+    ref.prevDeps = [...(dependencies ?? [])];
     setTimeout(callback, 0);
   }
+}
+export function useMemo<T>(callback: () => T, dependencies: any[] | null = null) {
+  const ref = useHook({current: null as T, prevDeps: null as any[] | null});
+  if (areDependenciesDifferent(ref.prevDeps, dependencies)) {
+    ref.prevDeps = [...(dependencies ?? [])];
+    ref.current = callback();
+  }
+  return ref.current;
 }
 // TODO: more hooks?
