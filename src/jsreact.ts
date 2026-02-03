@@ -238,11 +238,7 @@ export function renderRoot(vnode: ValueOrVNode, getParent: () => HTMLElement) {
 // hooks
 /** the current component */
 let $component = {} as Component;
-const _rerenderHere = () => _rerender($component);
-export function useRerender() {
-  const component = $component;
-  return () => _rerender(component);
-}
+export const useRerender = () => () => _rerender($component);
 export function useHook() {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
@@ -261,7 +257,7 @@ export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
   const ref = useRef(defaultState);
   const setState = (newState: T) => {
     ref.current = newState;
-    _rerenderHere();
+    _rerender($component);
   }
   return [ref.current, setState];
 }
