@@ -10,7 +10,7 @@ export type IntrinsicProps = {
   style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
-type TextProps = {value: any};
+type TextProps = string | number | boolean | null | undefined;
 type JSXProps = {children?: ReactNode};
 type DOMProps = IntrinsicProps & JSXProps & {[key: string]: any};
 
@@ -21,7 +21,7 @@ export function forwardRef(render: any) {
 }
 export function createElement(type: VNode["type"], props: VNode["props"], ...children: ReactNode[]): VNode {
   const { key, ...rest } = props;
-  return { type, key, props: {...props, children} };
+  return { type, key, props: {...rest, children} };
 }
 export function isValidElement(value: any): value is VNode {
   return "type" in value && "props" in value;
@@ -131,7 +131,7 @@ function applyJsxProps(component: Component, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
   if (element instanceof Text) {
-    const value = (props as unknown as TextProps).value;
+    const value = props as unknown as TextProps;
     element.textContent = value != null ? String(value) : "";
     return;
   }
@@ -219,8 +219,7 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     } else break;
   }
   if (!isVNode(leaf)) {
-    const textProps: TextProps = {value: leaf};
-    leaf = {type: "Text", key: undefined, props: textProps as unknown as JSXProps};
+    leaf = {type: "Text", key: undefined, props: leaf as unknown as DOMProps};
   }
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
