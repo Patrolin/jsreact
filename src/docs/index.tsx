@@ -1,5 +1,7 @@
-import { FC, renderRoot, useEffect, useState } from "src/jsreact";
-import "docs/style.css";
+import { FC, ReactNode, useEffect, useState } from "jsreact";
+import { render } from "react-dom";
+//import { Button } from "@mui/material";
+import "./style.css";
 
 const App: FC<{ foobar: string }> = () => {
   const [state, setState] = useState(0);
@@ -7,7 +9,8 @@ const App: FC<{ foobar: string }> = () => {
     if (state % 2 === 1) setState(state + 1);
   }, [state]);
   return (
-    <div className="hello world" cssVars={{ foobar: 1 }} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+    <div className="hello world" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {/*<Button />*/}
       <button style={{ color: "black" }} onClick={() => setState(state - 1)}>
         -1
       </button>
@@ -25,4 +28,4 @@ const App: FC<{ foobar: string }> = () => {
     </div>
   );
 };
-renderRoot(<App foobar="" />, () => document.querySelector("#app")!);
+render(<App foobar="" />, document.querySelector("#app")!);

@@ -1,4 +1,4 @@
-import type { VNode } from "./jsx.d.ts";
+import { VNode } from "./jsreact";
 
 export function jsxDEV(
   type: VNode["type"],
@@ -8,6 +8,5 @@ export function jsxDEV(
   source: VNode["source"],
   _self: any,
 ): VNode {
-  return { type, key, props: props ?? {}, source };
+  return { type, key, props: {...props, children: props?.children ?? null}, source };
 }
-export const Fragment = undefined;
