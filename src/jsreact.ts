@@ -1,4 +1,4 @@
-import type { FunctionComponent, LeafNode, Props, ReactNode, VNode } from "./jsx.d.ts";
+import type { FunctionComponent, JSXProps, LeafNode, ReactNode, VNode } from "./jsx.d.ts";
 export type FC<T = {}> = FunctionComponent<T>;
 
 type Component = {
@@ -37,7 +37,7 @@ type EventMapping = {name: string, type: string};
 const EVENT_MAP: EventMapping[] = [
   {name: "onClick", type: "click"},
 ]
-function applyJsxProps(component: Component, props: Props) {
+function applyJsxProps(component: Component, props: JSXProps) {
   const {element, prevEvents} = component;
   if (element == null) return;
   if (element instanceof Text) {

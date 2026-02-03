@@ -4,7 +4,7 @@
   "author": "Patrolin",
   "license": "MIT",
   "description": "A reimplementation of React that doesn't allow multiple rerenders per frame.",
-  "main": "src/jsreact.mts",
+  "main": "dist/jsreact.js",
   "type": "module",
   "scripts": {
     "start": "vite",

@@ -1,21 +1,17 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "dist/*": ["dist/*"], "src/*": ["src/*"], "docs/*": ["docs/*"] },
+    "allowImportingTsExtensions": true,
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "strictNullChecks": true,
     "noEmit": true,
+    "strictNullChecks": true,
     "allowJs": true,
     "checkJs": true,
-    "baseUrl": ".",
-    "paths": {
-      "src/*": ["src/*"],
-      "docs/*": ["docs/*"]
-    },
     "jsx": "react-jsx",
-    "jsxImportSource": "src",
-    "skipLibCheck": true
+    "jsxImportSource": "src"
   },
-  "include": ["node_modules/vite/client.d.ts", "src/**/*", "docs/**/*"]
+  "include": ["node_modules/vite/client.d.ts", "**/*"]
 }

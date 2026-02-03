@@ -4,7 +4,7 @@ import "docs/style.css";
 const App: FC = () => {
   const [state, setState] = useState(0);
   return (
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+    <div foobar="" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       <button style={{ color: "black" }} onClick={() => setState(state - 1)}>
         -1
       </button>

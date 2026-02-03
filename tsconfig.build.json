@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "src/*": ["src/*"] },
     "target": "ESNext",
     "module": "nodenext",
     "moduleResolution": "nodenext",
@@ -7,8 +9,7 @@
     "declaration": true,
     "strictNullChecks": true,
     "allowJs": true,
-    "checkJs": true,
-    "baseUrl": "."
+    "checkJs": true
   },
   "include": ["src/**/*"]
 }
