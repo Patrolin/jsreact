@@ -1,30 +1,33 @@
 import * as CSS from "csstype";
-export interface CSSProperties extends CSS.Properties<string | number> {}
+export type CSSProperties = CSS.Properties<string | number>;
 
+// IntrinsicProps
 type JsxKey = string | number | boolean;
 export type IntrinsicProps = {
   key?: JsxKey;
-  attribute?: Record<string, any>;
   className?: string[] | string;
-  cssVars?: Record<string, any>;
+  cssVars?: Record<string, string | number>;
   style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
+type TextProps = {value: any};
+type JSXProps = IntrinsicProps & {children?: ReactNode};
+type DOMProps = JSXProps & {[key: string]: any};
 
+// ReactNode
+export type FunctionComponent<P = {}> = (props: P & JSXProps) => ValueOrVNode;
+type ElementType = FunctionComponent<any> | string | undefined;
 export interface VNode {
   type: ElementType;
   key: string | number | boolean | undefined;
-  props: JSXProps;
+  props: DOMProps;
   source?: {
     fileName: string;
     lineNumber: number;
     columnNumber: number;
-  } | null
+  } | null;
 }
-type ElementType = FunctionComponent<any> | string | undefined;
-type JSXProps = IntrinsicProps & {children?: ReactNode; [key: string]: any};
-export interface FunctionComponent<P = {}> {(props: P & JSXProps): LeafNode}
-export type LeafNode =
+export type ValueOrVNode =
   | VNode
   | string
   | number
@@ -32,19 +35,17 @@ export type LeafNode =
   | null
   | undefined
 export type ReactNode =
-  | LeafNode
+  | ValueOrVNode
   | ReactNode[]
 
-
+// exports
 declare global {
   namespace JSX {
-    type Element = LeafNode;
+    type Element = ValueOrVNode;
     interface IntrinsicElements {
-      // TODO: maybe give types for input, label, img, link
-      [tagName: string]: JSXProps;
+      // TODO: give types for input, label, img, link
+      [tagName: string]: DOMProps;
     }
-    interface ElementChildrenAttribute {
-      children: {};
-    }
+    interface ElementChildrenAttribute {children: {}}
   }
 }

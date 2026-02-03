@@ -1,17 +1,26 @@
-import type { FunctionComponent, JSXProps, LeafNode, ReactNode, VNode } from "./jsx.d.ts";
+import type { FunctionComponent, JSXProps, ValueOrVNode, ReactNode, VNode, TextProps } from "./jsx.d.ts";
 export type FC<T = {}> = FunctionComponent<T>;
 
 type Component = {
-  jsxNode: LeafNode;
-  node: LeafNode;
+  /** user input */
+  node: ValueOrVNode;
+  /** HTML element derived from user input */
   element: Element | undefined;
+  /** implementation detail */
   prevHookIndex: number;
+  /** implementation detail */
   hookIndex: number;
+  /** hook state */
   hooks: any[];
+  /** the key that the component was rendered as */
   key: string;
+  /** implementation detail */
   childIndex: number;
+  /** map<key, ChildState> */
   children: Record<string, Component>;
+  /** implementation detail */
   prevEvents: Record<string, ((event: any) => void) | undefined>;
+  /** implementation detail */
   root: Component;
   /* u1 willRerenderNextFrame, u1 gc */
   flags: number;
@@ -41,29 +50,45 @@ function applyJsxProps(component: Component, props: JSXProps) {
   const {element, prevEvents} = component;
   if (element == null) return;
   if (element instanceof Text) {
-    element.textContent = props.value != null ? String(props.value) : "";
+    const value = (props as TextProps).value;
+    element.textContent = value != null ? String(value) : "";
     return;
   }
-  // TODO: implement attributes, cssVars, className
-  const {style} = props;
-  if (style != null) {
-    for (let [k, v] of Object.entries(style)) {
-      k = camelCaseToKebabCase(k);
-      v = typeof v == "number" ? `${v}px` : v;
-      (element as HTMLElement).style.setProperty(k, v);
-    }
-  }
+  // events
   for (let {name, type} of EVENT_MAP) {
     const eventHandler = props[name];
     if (prevEvents[type] != null) element.removeEventListener(type, prevEvents[type]);
     prevEvents[type] = eventHandler;
     if (eventHandler) element.addEventListener(type, eventHandler)
   }
+  // style
+  const {style, cssVars, className, children, ...attribute} = props
+  if (style != null) {
+    for (let [k, v] of Object.entries(style)) {
+      k = camelCaseToKebabCase(k);
+      v = typeof v == "number" ? `${v}px` : v ?? null;
+      (element as HTMLElement).style.setProperty(k, v);
+    }
+  }
+  // cssVars
+  if (cssVars) {
+    for (let [k, v] of Object.entries(cssVars)) {
+      v = typeof v == "number" ? `${v}px` : v ?? null;
+      (element as HTMLElement).style.setProperty(`--${k}`, v);
+    }
+  }
+  // className
+  if (className) element.className = Array.isArray(className) ? className.join(" ") : className;
+  // attribute
+  for (let [key, value] of Object.entries(attribute)) {
+    if (value != null) element.setAttribute(key, String(value ?? ""));
+    else element.removeAttribute(key);
+  }
 }
 
 // render
-function isVNode(leafNode: LeafNode): leafNode is VNode {
-  return leafNode !== null && typeof leafNode === "object";
+function isVNode(leaf: ValueOrVNode): leaf is VNode {
+  return leaf !== null && typeof leaf === "object";
 }
 function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Component[]) {
   // recurse
@@ -81,7 +106,6 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
   let component = parent.children[key];
   if (component == null) {
     component = {
-      jsxNode: child,
       node: child,
       element: undefined,
       prevHookIndex: 0,
@@ -96,62 +120,61 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     };
     parent.children[key] = component;
   }
-  if (component.flags === parent.flags) {
-
-  }
   component.childIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
   component.flags = parent.flags;
   // run user code
   $component = component;
-  component.jsxNode = child;
-  let node = child;
-  while (isVNode(node) && typeof node.type === "function") {
-    node = node.type(node.props);
+  component.node = child;
+  let leaf = child;
+  while (isVNode(leaf) && typeof leaf.type === "function") {
+    leaf = leaf.type(leaf.props);
   }
-  node = isVNode(node) ? node : {type: "Text", key: undefined, props: {value: node}};
-  component.node = node;
+  if (!isVNode(leaf)) {
+    const textProps: TextProps = {value: leaf};
+    leaf = {type: "Text", key: undefined, props: textProps};
+  }
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
     throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
   }
   // create element
   let element = component.element;
-  if (node.type) {
-    if (element != null && (element?.tagName?.toLowerCase() ?? "Text") !== node.type) {
-      let jsxNode = component.jsxNode;
+  if (leaf.type) {
+    if (element != null && (element?.tagName?.toLowerCase() ?? "Text") !== leaf.type) {
+      let node = component.node;
       let source = "";
-      if (isVNode(jsxNode)) {
-        jsxNode = {...jsxNode};
-        source = jsxNode.source != null ? `${jsxNode.source?.fileName}:${jsxNode.source?.lineNumber}` : "";
-        delete jsxNode.key;
-        delete jsxNode.source;
+      if (isVNode(node)) {
+        node = {...node};
+        source = node.source != null ? `${node.source?.fileName}:${node.source?.lineNumber}` : "";
+        delete node.key;
+        delete node.source;
       }
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       if (source) {
         // NOTE: only runs in dev build
         document.body.innerHTML = `<h3 className="jsreact-error" style="font-family: Consolas, sans-serif">${error}.</h3>`;
       }
-      console.error(`${error}:`, {before: component.element, next: jsxNode});
+      console.error(`${error}:`, {before: component.element, next: node});
     };
     if (element == null) {
-      if (node.type === "Text") {
-        element = new Text(node.props.value) as unknown as Element;
+      if (leaf.type === "Text") {
+        element = new Text(leaf.props.value) as unknown as Element;
       } else {
-        element = document.createElement(node.type as string);
+        element = document.createElement(leaf.type as string);
       }
       component.element = element;
     }
-    applyJsxProps(component, node.props);
+    applyJsxProps(component, leaf.props);
   }
   if (element != null) {
     childOrder.push(component);
     childOrder = [];
   }
   // render children
-  const children = node.props.children;
-  if (children != null) renderChildren(component, node.props.children, childOrder);
+  const children = leaf.props.children;
+  if (children != null) renderChildren(component, leaf.props.children, childOrder);
 }
 function renderChildren(parent: Component, children: ReactNode, childOrder: Component[]) {
   renderJsxChildren(parent, children, childOrder);
@@ -186,15 +209,14 @@ function _rerender(component: Component) {
     requestAnimationFrame(() => {
       rootComponent.flags = nextGcFlag;
       rootComponent.childIndex = 0;
-      renderChildren(rootComponent, rootComponent.jsxNode, []);
+      renderChildren(rootComponent, rootComponent.node, []);
     });
   }
 }
-export function renderRoot(vnode: LeafNode, getParent: () => HTMLElement) {
+export function renderRoot(vnode: ValueOrVNode, getParent: () => HTMLElement) {
   const onLoad = () => {
     const parent = getParent();
     const rootComponent: Component = {
-      jsxNode: vnode,
       node: vnode,
       element: parent,
       prevHookIndex: 0,

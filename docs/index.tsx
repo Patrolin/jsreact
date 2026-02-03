@@ -1,10 +1,10 @@
 import { FC, renderRoot, useState } from "src/jsreact";
 import "docs/style.css";
 
-const App: FC = () => {
+const App: FC<{ foobar: string }> = () => {
   const [state, setState] = useState(0);
   return (
-    <div foobar="" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+    <div className="hello world" cssVars={{ foobar: 1 }} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       <button style={{ color: "black" }} onClick={() => setState(state - 1)}>
         -1
       </button>
@@ -22,4 +22,4 @@ const App: FC = () => {
     </div>
   );
 };
-renderRoot(<App />, () => document.querySelector("#app")!);
+renderRoot(<App foobar="" />, () => document.querySelector("#app")!);

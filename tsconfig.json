@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": { "dist/*": ["dist/*"], "src/*": ["src/*"], "docs/*": ["docs/*"] },
+    "paths": { "src/*": ["src/*"], "docs/*": ["docs/*"] },
     "allowImportingTsExtensions": true,
     "target": "ESNext",
     "module": "ESNext",
@@ -13,5 +13,5 @@
     "jsx": "react-jsx",
     "jsxImportSource": "src"
   },
-  "include": ["node_modules/vite/client.d.ts", "**/*"]
+  "include": ["node_modules/vite/client.d.ts", "src/**/*", "docs/**/*"]
 }
