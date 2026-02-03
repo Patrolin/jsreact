@@ -6,8 +6,8 @@ export type IntrinsicProps = {
   key?: JsxKey;
   attribute?: Record<string, any>;
   className?: string[] | string;
-  style?: CSSProperties;
   cssVars?: Record<string, any>;
+  style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
 

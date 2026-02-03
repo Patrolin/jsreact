@@ -17,11 +17,8 @@ type Component = {
   flags: number;
 };
 // apply intrinsic props
-type EventMapping = {name: string, type: string};
-const EVENT_MAP: EventMapping[] = [
-  {name: "onClick", type: "click"},
-]
 function camelCaseToKebabCase(camelCase: string) {
+  // TODO: optimize this function
   const slices: string[] = [];
   let i = 0;
   let j = 0;
@@ -35,12 +32,19 @@ function camelCaseToKebabCase(camelCase: string) {
   slices.push(camelCase.slice(i, camelCase.length));
   return slices.join("-").toLowerCase();
 }
+type EventMapping = {name: string, type: string};
+// TODO: more events
+const EVENT_MAP: EventMapping[] = [
+  {name: "onClick", type: "click"},
+]
 function applyJsxProps(component: Component, props: Props) {
   const {element, prevEvents} = component;
   if (element == null) return;
   if (element instanceof Text) {
     element.textContent = props.value != null ? String(props.value) : "";
+    return;
   }
+  // TODO: implement attributes, cssVars, className
   const {style} = props;
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
