@@ -11,7 +11,6 @@ export type IntrinsicProps = JSXProps & {
   style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
-type TextProps = Value;
 type DOMProps = IntrinsicProps & {[k: string]: any};
 
 // ReactNode
