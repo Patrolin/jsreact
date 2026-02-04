@@ -263,19 +263,16 @@ function applyJsxProps(component: JsReactComponent, props: DOMProps) {
 function isVNode(leaf: ValueOrVNode): leaf is VNode {
   return leaf !== null && typeof leaf === "object";
 }
-function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], childOrder: JsReactComponent[]) {
+function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrder: JsReactComponent[]) {
   // recurse
   if (Array.isArray(child)) {
     for (let c of child) renderJsxChildren(parent, c, childOrder);
     return;
   }
   // get component state
-  if (!isVNode(child)) {
-    const textProps: TextProps = {value: child};
-    child = {type: "Text", key: undefined, props: textProps};
-  }
-  let keyLeft = typeof child.type === "string" ? child.type : (child.type as any)?.name ?? "";
-  let keyRight = child.key;
+  const childType = (child as VNode | undefined)?.type ?? "_" + typeof child;
+  let keyLeft = typeof childType === "string" ? childType : (childType as any)?.name ?? "";
+  let keyRight = (child as VNode | undefined)?.key;
   if (keyRight == null) {
     keyRight = parent.childIndex++;
   } else {
@@ -314,13 +311,14 @@ function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], chi
       leaf = leaf.type(leaf.props);
     } else if (leaf.type != null && typeof leaf.type === "object") {
       switch (leaf.type.$$typeof) {
-      case FRAGMENT_SYMBOL: {} break;
+      case FRAGMENT_SYMBOL: {
+        throw "fragment";
+      } break;
       case FORWARD_REF_SYMBOL: {
         const forwardRefVNode = leaf.type as ForwardRefElement;
         const {ref, ...rest} = leaf.props;
-        //console.log("ayaya.beforef", child, rest, ref)
+        console.log("ayaya.leaf.beforeRef", child, rest, ref)
         leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
-        //console.log("ayaya.afterf", {leaf, child})
       } break;
       case CONTEXT_PROVIDER_SYMBOL: {
         isContextElement = true;
@@ -336,11 +334,6 @@ function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], chi
       }}
     }
   }
-  // if a function component returns Value, then we turn it into a VNode again...
-  if (!isVNode(leaf)) {
-    const textProps: TextProps = {value: leaf};
-    leaf = {type: "Text", key: undefined, props: textProps};
-  }
   // debug
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
@@ -349,9 +342,20 @@ function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], chi
   // create element
   let isElementNew = false;
   let element = component.element;
-  if (typeof leaf.type === "string") {
-    if (element != null && (element?.tagName?.toLowerCase() ?? "Text") !== leaf.type) {
-      let node = component.node;
+  console.log("ayaya.leaf", leaf);
+  if (!isVNode(leaf)) {
+    let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
+    if (element == null && needText) {
+      isElementNew = true;
+      element = new Text() as unknown as Element;
+      component.element = element;
+    }
+    const textProps: TextProps = {value: leaf};
+    applyJsxProps(component, textProps);
+    /* NOTE: `false, null, ...` still need to register as children for `childIndex` */
+  } else if (typeof leaf.type === "string") {
+    if (element != null && element?.tagName?.toLowerCase() !== leaf.type) {
+      let node = child;
       let source = "";
       if (isVNode(node)) {
         node = {...node};
@@ -365,18 +369,13 @@ function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], chi
     };
     if (element == null) {
       isElementNew = true;
-      if (leaf.type === "Text") {
-        element = new Text() as unknown as Element;
-      } else {
-        element = document.createElement(leaf.type as string);
-      }
+      element = document.createElement(leaf.type as string);
       component.element = element;
     }
     applyJsxProps(component, leaf.props);
   }
-  // loop if necessary
+  // set ref = element
   if (element != null) {
-    // set ref = element
     if (isElementNew) {
       const ref = isVNode(child) ? child.props.ref : undefined;
       if (isCallback(ref)) ref(element);
@@ -390,24 +389,24 @@ function renderJsxChildren(parent: JsReactComponent, child: VNode | VNode[], chi
   let prevContextValue;
   let context: Context<any>;
   if (isContextElement) {
-    context = (leaf!.type as ContextElement).context;
+    context = ((leaf as VNode).type as ContextElement).context;
     prevContextValue = context._currentValue;
-    context._currentValue = leaf!.props.value;
+    context._currentValue = (leaf as VNode).props.value;
   }
-  let children = leaf.props?.children;
-  if (leaf !== child && (typeof leaf.type === "function" || (leaf.type as any)?.$$typeof)) {
-    children = leaf;
-  }
-  console.log("ayaya.leaf.leaf", leaf);
-  if (children != null) renderChildren(component, children as VNode | VNode[], childOrder);
+  let children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
+  //if (nodeCount++ > 35) throw "??";
+  if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
-function renderChildren(parent: JsReactComponent, children: VNode | VNode[], childOrder: JsReactComponent[]) {
+let nodeCount = 0;
+function renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
   renderJsxChildren(parent, children, childOrder);
-  console.log("ayaya.render.parentElement", {a: parent, childOrder})
   removeUnusedChildren(parent, parent.flags & 1);
   // reorder used children
   const parentElement = parent.element;
+  if (parentElement != null) {
+    console.log("ayaya.render.parentElement", {a: parent, childOrder})
+  }
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -422,25 +421,29 @@ function renderChildren(parent: JsReactComponent, children: VNode | VNode[], chi
   }
 }
 function removeUnusedChildren(parent: JsReactComponent, parentFlags: number) {
-  for (let c of Object.values(parent.children)) {
-    if (c.flags !== parentFlags) {
-      console.log("ayaya.c", c);
+  console.log("ayaya.gc.removeUnusedChildren", parent);
+  for (let component of Object.values(parent.children)) {
+    if (component.flags !== parentFlags) {
+      console.log("ayaya.gc", component);
       // set ref = null
-      const child = c.node;
+      const child = component.node;
       const ref = isVNode(child) ? child.props.ref : undefined;
       if (isCallback(ref)) ref(null);
       else if (ref) ref.current = null;
       // remove the element
-      c.element?.remove();
-      c.root = null as any; // delete cyclic reference to help the garbage collector
-      delete parent.children[c.key]; // delete old state
+      const element = component.element;
+      if (element) {
+        element.remove();
+      }
+      component.root = null as any; // delete cyclic reference to help the garbage collector
+      delete parent.children[component.key]; // delete old state
     }
-    if (c.element == null) removeUnusedChildren(c, parentFlags);
+    if (component.element == null) removeUnusedChildren(component, parentFlags);
   }
 }
 // debug tools
 let renderCount = 0;
-const MAX_RENDER_COUNT: number | null = null;
+const MAX_RENDER_COUNT: number | null = 2;
 const ENABLE_WHY_DID_YOU_RENDER = true;
 function whoami() {
   const stacktrace = new Error().stack ?? "";
@@ -449,7 +452,7 @@ function whoami() {
 // entry
 function _rerender(component: JsReactComponent) {
   if (ENABLE_WHY_DID_YOU_RENDER) {
-    console.log("Rerender caused by:", whoami());
+    console.log(".leaf.parent.gc, Rerender caused by:", whoami());
   }
   if (MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT) {
     throw new Error("Infinite loop!");
@@ -489,6 +492,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
       flags: 0,
     };
     rootComponent.root = rootComponent;
+    console.log("ayaya.root", rootComponent);
     _rerender(rootComponent);
   }
   window.addEventListener("DOMContentLoaded", onLoad);

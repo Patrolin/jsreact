@@ -8,7 +8,7 @@ const App: FC<{ foobar: string }> = () => {
   /*const [state, setState] = useState(0);
   return (
     <div>
-      {state % 2 == 0 && <span>hello</span>}
+      {state % 2 == 1 && <span>hello</span>}
       <button onClick={() => setState(state + 1)}>+1</button>
     </div>
   );*/
@@ -33,7 +33,7 @@ const App: FC<{ foobar: string }> = () => {
           </Portal>
         )}
       </div>
-      <div style={{ padding: 4, border: "1px solid black" }} ref={container} />
+      <aside style={{ padding: 4, border: "1px solid black" }} ref={container} />
     </main>
   );
   //return (
