@@ -2,7 +2,7 @@ import * as CSS from "csstype";
 export type CSSProperties = CSS.Properties<string | number>;
 
 // IntrinsicProps
-type JsxKey = string | number | boolean | null | undefined;
+type JsxKey = Value;
 type JSXProps = {children?: ReactNode, key?: JsxKey};
 export type IntrinsicProps = JSXProps & {
   className?: string[] | string;
@@ -10,21 +10,36 @@ export type IntrinsicProps = JSXProps & {
   style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
-type TextProps = string | number | boolean | null | undefined;
+type TextProps = Value;
 type DOMProps = IntrinsicProps & {[k: string]: any};
 
+// React.Component
+export class Component {type: string;}
 // createElement()
 type FragmentElement = null;
 export const Fragment = null;
-export function createElement(type: VNode["type"], props: VNode["props"], ...children: ReactNode[]): VNode {
-  const { key, ...rest } = props;
+export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
+  const { key, ...rest } = props ?? {};
   return { type, key, props: {...rest, children} };
+}
+export function memo(component: FC, arePropsEqual: (_a, _b: any) => boolean) {
+  return component;
 }
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 type ForwardRefElement = { $$typeof: Symbol; render: (props: DOMProps, ref: object) => VNode };
 export function forwardRef(render: any) {
   return { $$typeof: FORWARD_REF_SYMBOL, render };
+}
+type Or<T, C> = T | C;
+function isCallback<T, C extends Function>(value: Or<T, C>): value is C {
+  return typeof value === "function";
+}
+type RefValue<T> = MutableRef<T> | ((value: T) => void) | null | undefined;
+export function useImperativeHandle<T>(ref: RefValue<T>, createHandle: () => T) {
+  if (ref == null) return;
+  if (isCallback(ref)) ref(createHandle());
+  else ref.current = createHandle();
 }
 // createContext()
 const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
@@ -111,7 +126,7 @@ declare global {
 export type FC<T = {}> = FunctionComponent<T>;
 
 // implementation
-type Component = {
+type JsReactComponent = {
   /** user input */
   node: ValueOrVNode;
   /** HTML element derived from user input */
@@ -127,11 +142,11 @@ type Component = {
   /** implementation detail */
   childIndex: number;
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
-  children: Record<string, Component>;
+  children: Record<string, JsReactComponent>;
   /** implementation detail */
   prevEventHandlers: Record<string, ((event: any) => void) | undefined>;
   /** implementation detail */
-  root: Component;
+  root: JsReactComponent;
   /* u1 willRerenderNextFrame, u1 gc */
   flags: number;
 };
@@ -156,7 +171,7 @@ type EventMapping = {name: string, type: string};
 const EVENT_MAP: EventMapping[] = [
   {name: "onClick", type: "click"},
 ]
-function applyJsxProps(component: Component, props: DOMProps) {
+function applyJsxProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
   if (element instanceof Text) {
@@ -201,7 +216,7 @@ function applyJsxProps(component: Component, props: DOMProps) {
 function isVNode(leaf: ValueOrVNode): leaf is VNode {
   return leaf !== null && typeof leaf === "object";
 }
-function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Component[]) {
+function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrder: JsReactComponent[]) {
   // recurse
   if (Array.isArray(child)) {
     for (let c of child) renderJsxChildren(parent, c, childOrder);
@@ -246,7 +261,7 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
   component.node = child;
   let leaf = child;
   let isContextElement = false;
-  while (isVNode(leaf)) {
+  outer: while (isVNode(leaf)) {
     if (typeof leaf.type === "function") leaf = leaf.type(leaf.props);
     else if (leaf.type != null && typeof leaf.type === "object") {
       switch (leaf.type.$$typeof) {
@@ -257,6 +272,7 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
       } break;
       case CONTEXT_PROVIDER_SYMBOL: {
         isContextElement = true;
+        break outer;
       } break;
       default: {
         const message = "Not implemented: leaf type";
@@ -264,7 +280,6 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
         throw leaf.type;
       }
       }
-      break;
     } else break;
   }
   if (!isVNode(leaf)) {
@@ -295,7 +310,8 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     };
     if (element == null) {
       if (leaf.type === "Text") {
-        element = new Text(leaf.props.value) as unknown as Element;
+        const value = leaf.props as unknown as TextProps;
+        element = new Text(String(value ?? "")) as unknown as Element;
       } else {
         element = document.createElement(leaf.type as string);
       }
@@ -315,13 +331,13 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     prevContextValue = context._currentValue;
     context._currentValue = leaf.props.value;
   }
-  const children = leaf.props.children;
-  if (children != null) renderChildren(component, leaf.props.children, childOrder);
+  const children = leaf.props?.children;
+  if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
-function renderChildren(parent: Component, children: ReactNode, childOrder: Component[]) {
+function renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
   renderJsxChildren(parent, children, childOrder);
-  removeUnusedChildren(parent, parent.flags);
+  removeUnusedChildren(parent, parent.flags & 1);
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null) {
@@ -337,7 +353,7 @@ function renderChildren(parent: Component, children: ReactNode, childOrder: Comp
     }
   }
 }
-function removeUnusedChildren(parent: Component, parentFlags: number) {
+function removeUnusedChildren(parent: JsReactComponent, parentFlags: number) {
   for (let c of Object.values(parent.children)) {
     if (c.flags !== parentFlags) {
       c.element?.remove();
@@ -347,12 +363,13 @@ function removeUnusedChildren(parent: Component, parentFlags: number) {
     if (c.element == null) removeUnusedChildren(c, parentFlags);
   }
 }
-function _rerender(component: Component) {
+function _rerender(component: JsReactComponent) {
   const rootComponent = component.root;
   if ((rootComponent.flags & 2) === 0) {
-    const nextGcFlag = 1 - (component.flags & 1);
-    rootComponent.flags = nextGcFlag | 2;
+    rootComponent.flags = rootComponent.flags | 2;
     requestAnimationFrame(() => {
+      // NOTE: this may execute concurrently!
+      const nextGcFlag = 1 - (component.flags & 1);
       rootComponent.flags = nextGcFlag;
       rootComponent.childIndex = 0;
       renderChildren(rootComponent, rootComponent.node, []);
@@ -361,7 +378,7 @@ function _rerender(component: Component) {
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
   const onLoad = () => {
-    const rootComponent: Component = {
+    const rootComponent: JsReactComponent = {
       node: vnode,
       element: parent,
       prevHookIndex: 0,
@@ -382,7 +399,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 
 // hooks
 /** the current component */
-let $component = {} as Component;
+let $component = {} as JsReactComponent;
 export const useRerender = () => () => _rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
@@ -393,12 +410,18 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   return $component.hooks[index];
 }
 type MutableRef<T> = {current: T};
-export function useRef<T>(defaultState: T): MutableRef<T> {
-  if (typeof defaultState === "function") throw "Not implemented: defaultState function";
-  return useHook({current: defaultState});
+export function useRef<T>(defaultState: T | (() => T)): MutableRef<T> {
+  const hook = useHook({current: undefined as unknown as T});
+  if ($component.hookIndex === $component.hooks.length) {
+    if (isCallback(defaultState)) hook.current = defaultState();
+    else hook.current = defaultState;
+  }
+  console.log("ayaya.useRef", hook);
+  return hook;
 }
-export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
+export function useState<T>(defaultState: T | (() => T)): [T, (newValue: T) => void] {
   const ref = useRef(defaultState);
+  console.log("ayaya.useState", ref);
   const setState = (newState: T) => {
     ref.current = newState;
     _rerender($component);
@@ -414,7 +437,15 @@ export function useEffect(callback: () => void, dependencies: any[] | null = nul
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    setTimeout(callback, 0);
+    callback();
+    //setTimeout(callback, 0);
+  }
+}
+export function useLayoutEffect(callback: () => void, dependencies: any[] | null = null) {
+  const hook = useHook({prevDeps: null as any[] | null});
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
+    hook.prevDeps = [...(dependencies ?? [])];
+    callback();
   }
 }
 export function useMemo<T>(callback: () => T, dependencies: any[] | null = null): T {
