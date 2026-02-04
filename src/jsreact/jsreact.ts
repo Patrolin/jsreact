@@ -339,10 +339,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   console.log("ayaya.leaf", {leaf, child, element});
   // loop if necessary
   if (element == null) {
-    if (leaf !== child) {
-      renderJsxChildren(component, leaf, childOrder);
-      return;
-    }
+    if (leaf !== child) return renderJsxChildren(component, leaf, childOrder);
   }
   // set ref
   if (element != null) {
