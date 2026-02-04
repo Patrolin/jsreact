@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "vite",
+    "debug": "vite build",
     "build-windows": "powershell rm dist/*; npx tsc -p tsconfig.build.json && powershell cp src/*.d.ts dist",
     "build-linux": "rm dist/*; npx tsc -p tsconfig.build.json && cp src/*.d.ts dist"
   },

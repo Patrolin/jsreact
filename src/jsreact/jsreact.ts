@@ -5,6 +5,7 @@ export type CSSProperties = CSS.Properties<string | number>;
 type JsxKey = Value;
 type JSXProps = {children?: ReactNode, key?: JsxKey};
 export type IntrinsicProps = JSXProps & {
+  ref?: MutableRef<any> | ((value: any) => void);
   className?: string[] | string;
   cssVars?: Record<string, string | number>;
   style?: CSSProperties;
@@ -13,77 +14,6 @@ export type IntrinsicProps = JSXProps & {
 type TextProps = Value;
 type DOMProps = IntrinsicProps & {[k: string]: any};
 
-// React.Component
-export class Component {type: string;}
-// createElement()
-type FragmentElement = null;
-export const Fragment = null;
-export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
-  const { key, ...rest } = props ?? {};
-  return { type, key, props: {...rest, children} };
-}
-export function memo(component: FC, arePropsEqual: (_a, _b: any) => boolean) {
-  return component;
-}
-// forwardRef()
-export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
-type ForwardRefElement = { $$typeof: Symbol; render: (props: DOMProps, ref: object) => VNode };
-export function forwardRef(render: any) {
-  return { $$typeof: FORWARD_REF_SYMBOL, render };
-}
-type Or<T, C> = T | C;
-function isCallback<T, C extends Function>(value: Or<T, C>): value is C {
-  return typeof value === "function";
-}
-type RefValue<T> = MutableRef<T> | ((value: T) => void) | null | undefined;
-export function useImperativeHandle<T>(ref: RefValue<T>, createHandle: () => T) {
-  if (ref == null) return;
-  if (isCallback(ref)) ref(createHandle());
-  else ref.current = createHandle();
-}
-// createContext()
-const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
-type ContextElement = { $$typeof: Symbol, context: Context<any> };
-type Context<T> = {
-  _currentValue: T;
-  Provider: FC<{value: T}>;
-  Consumer: FC<{children: (value: T) => ReactNode}>;
-}
-export function createContext<T>(defaultValue: T) {
-  const context: Context<T> = {
-    _currentValue: defaultValue,
-    Provider: (props) => {
-      /* NOTE: key prop is handled automatically */
-      return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props};
-    },
-    Consumer: ({children}) => {
-      if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
-      const value = useContext(context);
-      return {type: Fragment, key: undefined, props: {children: children(value)}};
-    },
-  }
-  return context;
-}
-export function useContext<T>(context: Context<T>): T {
-  return context._currentValue;
-}
-type Without<T, U> = T extends U ? never : T;
-export function isValidElement(value: any): value is Without<ElementType, Value> {
-  return typeof value === "object" && "type" in value && ("props" in value || "$$typeof" in value.type);
-}
-export function cloneElement(vnode: ValueOrVNode): ValueOrVNode {
-  return vnode;
-}
-export const Children = {
-  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
-    if (children == null) return null; // null or undefined
-    if (!Array.isArray(children)) {
-      return [fn.call(thisArg, children, 0)];
-    }
-    return children.map(fn, thisArg);
-  },
-}
-
 // ReactNode
 export type FunctionComponent<P = {}> = (props: P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps) => ValueOrVNode;
 type ElementType = FunctionComponent<any> | string | FragmentElement | ForwardRefElement | ContextElement;
@@ -91,7 +21,6 @@ export interface VNode {
   type: ElementType;
   key: JsxKey;
   props: DOMProps;
-  children?: ReactNode | null;
   source?: {
     fileName: string;
     lineNumber: number;
@@ -124,6 +53,92 @@ declare global {
   }
 }
 export type FC<T = {}> = FunctionComponent<T>;
+
+// React.Component
+export class Component {type: string};
+// createElement()
+const FRAGMENT_SYMBOL = Symbol.for("react.fragment")
+type FragmentElement = { $$typeof: symbol };
+export const Fragment: FragmentElement = { $$typeof: FRAGMENT_SYMBOL };
+export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
+  const { key, ...rest } = props ?? {};
+  return { type, key, props: {...rest, children} };
+}
+export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
+  return component;
+}
+// forwardRef()
+export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
+type ForwardRefElement<T = any> = { $$typeof: symbol; render: (props: T & JSXProps, ref: IntrinsicProps["ref"]) => VNode };
+export function forwardRef<T>(render: ForwardRefElement<T>["render"]): FC<T> {
+  return (props) => {
+    console.log("ayaya.forwardRef()", props, render);
+    return {
+      type: { $$typeof: FORWARD_REF_SYMBOL, render },
+      key: undefined,
+      props,
+    }
+  }
+}
+type Or<T, C> = T | C;
+function isCallback<T, C extends Function>(value: Or<T, C>): value is C {
+  return typeof value === "function";
+}
+type RefValue<T> = MutableRef<T> | ((value: T) => void) | null | undefined;
+export function useImperativeHandle<T>(ref: RefValue<T>, createHandle: () => T) {
+  console.log("ayaya.useImperativeHandle", ref, createHandle)
+  if (ref == null) return;
+  if (isCallback(ref)) ref(createHandle());
+  else ref.current = createHandle();
+}
+// createContext()
+const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
+type ContextElement = { $$typeof: symbol, context: Context<any> };
+type Context<T> = {
+  _currentValue: T;
+  Provider: FC<{value: T}>;
+  Consumer: FC<{children: (value: T) => ReactNode}>;
+}
+export function createContext<T>(defaultValue: T): Context<T> {
+  const context: Context<T> = {
+    _currentValue: defaultValue,
+    Provider: (props) => {
+      console.log("ayaya.Provider", props)
+      /* NOTE: key prop is handled automatically */
+      return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props};
+    },
+    Consumer: ({children}) => {
+      console.log("ayaya.Consumer", children)
+      if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
+      const value = useContext(context);
+      return {type: Fragment, key: undefined, props: {children: children(value)}};
+    },
+  }
+  return context;
+}
+export function useContext<T>(context: Context<T>): T {
+  console.log("ayaya.useContext", context);
+  return context._currentValue;
+}
+type Without<T, U> = T extends U ? never : T;
+export function isValidElement(value: any): value is Without<ElementType, Value> {
+  //console.log("ayaya.isValidElement")
+  return typeof value === "object" && "type" in value && ("props" in value || "$$typeof" in value.type);
+}
+export function cloneElement(vnode: ValueOrVNode): ValueOrVNode {
+  console.log("ayaya.cloneElement")
+  return vnode;
+}
+export const Children = {
+  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
+    console.log("ayaya.Children.map")
+    if (children == null) return null; // null or undefined
+    if (!Array.isArray(children)) {
+      return [fn.call(thisArg, children, 0)];
+    }
+    return children.map(fn, thisArg);
+  },
+}
 
 // implementation
 type JsReactComponent = {
@@ -175,7 +190,7 @@ function applyJsxProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
   if (element instanceof Text) {
-    const value = props as unknown as TextProps;
+    const value = props as unknown as Value;
     element.textContent = value != null ? String(value) : "";
     return;
   }
@@ -234,7 +249,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   } else {
     keyRight = keyRight;
   }
-  const key = `${keyLeft}.${keyRight}`;
+  const key = `${keyLeft}_${keyRight}`;
   let component = parent.children[key];
   if (component == null) {
     component = {
@@ -261,35 +276,37 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   component.node = child;
   let leaf = child;
   let isContextElement = false;
-  outer: while (isVNode(leaf)) {
+  if (isVNode(leaf)) {
     if (typeof leaf.type === "function") leaf = leaf.type(leaf.props);
     else if (leaf.type != null && typeof leaf.type === "object") {
       switch (leaf.type.$$typeof) {
+      case FRAGMENT_SYMBOL: {} break;
       case FORWARD_REF_SYMBOL: {
         const forwardRefVNode = leaf.type as ForwardRefElement;
         const {ref, ...rest} = leaf.props;
-        leaf = forwardRefVNode.render(rest, ref);
+        // TODO: fix this??
+        console.log("ayaya.beforef", forwardRefVNode, rest, ref)
+        leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
+        console.log("ayaya.afterf", leaf)
       } break;
       case CONTEXT_PROVIDER_SYMBOL: {
         isContextElement = true;
-        break outer;
       } break;
       default: {
         const message = "Not implemented: leaf type";
         console.error(message);
         throw leaf.type;
-      }
-      }
-    } else break;
-  }
-  if (!isVNode(leaf)) {
-    leaf = {type: "Text", key: undefined, props: leaf as unknown as DOMProps};
+      }}
+    }
   }
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
     throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
   }
   // create element
+  if (!isVNode(leaf)) {
+    leaf = {type: "Text", key: undefined, props: leaf as unknown as DOMProps};
+  }
   let element = component.element;
   if (typeof leaf.type === "string") {
     if (element != null && (element?.tagName?.toLowerCase() ?? "Text") !== leaf.type) {
@@ -310,7 +327,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     };
     if (element == null) {
       if (leaf.type === "Text") {
-        const value = leaf.props as unknown as TextProps;
+        const value = leaf.props as unknown as Value;
         element = new Text(String(value ?? "")) as unknown as Element;
       } else {
         element = document.createElement(leaf.type as string);
@@ -319,7 +336,19 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     }
     applyJsxProps(component, leaf.props);
   }
+  console.log("ayaya.leaf", {leaf, child, element});
+  // loop if necessary
+  const children = leaf.props.children;
+  if (element == null) {
+    if (leaf !== child) renderJsxChildren(component, leaf, childOrder);
+    return;
+  }
+  // set ref
   if (element != null) {
+    const ref = isVNode(child) && child.props.ref;
+    if (isCallback(ref)) ref(element);
+    else if (ref) ref.current = element;
+    // set childOrder
     childOrder.push(component);
     childOrder = [];
   }
@@ -327,11 +356,10 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   let prevContextValue;
   let context: Context<any>;
   if (isContextElement) {
-    context = (leaf.type as ContextElement).context;
+    context = (leaf!.type as ContextElement).context;
     prevContextValue = context._currentValue;
-    context._currentValue = leaf.props.value;
+    context._currentValue = leaf!.props.value;
   }
-  const children = leaf.props?.children;
   if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
@@ -341,6 +369,7 @@ function renderChildren(parent: JsReactComponent, children: ReactNode, childOrde
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null) {
+    //console.log("ayaya.parentElement", {a: parentElement, childOrder})
     let prevElement = null as Element|null;
     for (let c of childOrder) {
       const childElement = c.element!;
@@ -410,23 +439,29 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   return $component.hooks[index];
 }
 type MutableRef<T> = {current: T};
-export function useRef<T>(defaultState: T | (() => T)): MutableRef<T> {
-  const hook = useHook({current: undefined as unknown as T});
-  if ($component.hookIndex === $component.hooks.length) {
+export function useRef<T = undefined>(defaultState: T | (() => T) = undefined as T): MutableRef<T> {
+  const prevHookCount = $component.hooks.length;
+  const hook = useHook({current: undefined as T});
+  if ($component.hookIndex > prevHookCount) {
     if (isCallback(defaultState)) hook.current = defaultState();
     else hook.current = defaultState;
   }
-  console.log("ayaya.useRef", hook);
+  console.log("ayaya.useRef", defaultState, hook);
   return hook;
 }
 export function useState<T>(defaultState: T | (() => T)): [T, (newValue: T) => void] {
-  const ref = useRef(defaultState);
-  console.log("ayaya.useState", ref);
+  console.log("ayaya.useState", defaultState);
+  const prevHookCount = $component.hooks.length;
+  const hook = useHook({current: undefined as T});
+  if ($component.hookIndex > prevHookCount) {
+    if (isCallback(defaultState)) hook.current = defaultState();
+    else hook.current = defaultState;
+  }
   const setState = (newState: T) => {
-    ref.current = newState;
+    hook.current = newState;
     _rerender($component);
   }
-  return [ref.current, setState];
+  return [hook.current, setState];
 }
 function dependenciesDiffer(prevDeps: any[] | null, deps: any[] | null): boolean {
   // NOTE: `Object.is()` for correct NaN handling
@@ -434,14 +469,16 @@ function dependenciesDiffer(prevDeps: any[] | null, deps: any[] | null): boolean
 }
 /** NOTE: prefer `useRef()` for better performance */
 export function useEffect(callback: () => void, dependencies: any[] | null = null): void {
+  console.log("ayaya.useEffect", callback, dependencies);
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    callback();
-    //setTimeout(callback, 0);
+    //callback();
+    setTimeout(callback, 0);
   }
 }
 export function useLayoutEffect(callback: () => void, dependencies: any[] | null = null) {
+  console.log("ayaya.useLayoutEffect", callback, dependencies);
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
@@ -449,6 +486,7 @@ export function useLayoutEffect(callback: () => void, dependencies: any[] | null
   }
 }
 export function useMemo<T>(callback: () => T, dependencies: any[] | null = null): T {
+  console.log("ayaya.useMemo", callback, dependencies);
   const hook = useHook({current: null as T, prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
@@ -457,11 +495,13 @@ export function useMemo<T>(callback: () => T, dependencies: any[] | null = null)
   return hook.current;
 }
 export function useCallback<T extends Function>(callback: T, _dependencies: any[] | null = null) {
+  console.log("ayaya.useCallback", callback, _dependencies);
   const hook = useHook({current: (() => {}) as unknown as T})
   hook.current = callback; // NOTE: you already created the lambda, might as well use it...
   return hook.current;
 }
 export function useId(): string {
+  console.log("ayaya.useId");
   const hook = useHook({ current: "" });
   if (hook.current === "") hook.current = String(Math.random());
   return hook.current;
