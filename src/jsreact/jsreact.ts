@@ -52,8 +52,9 @@ export function createContext<T>(defaultValue: T) {
 export function useContext<T>(context: Context<T>): T {
   return context._currentValue;
 }
-export function isValidElement(value: any): value is VNode {
-  return "type" in value && "props" in value;
+type Without<T, U> = T extends U ? never : T;
+export function isValidElement(value: any): value is Without<ElementType, Value> {
+  return typeof value === "object" && "type" in value && ("props" in value || "$$typeof" in value.type);
 }
 export function cloneElement(vnode: ValueOrVNode): ValueOrVNode {
   return vnode;
