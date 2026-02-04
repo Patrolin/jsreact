@@ -1,29 +1,24 @@
 import { FC, ReactNode } from "react";
 import { render } from "react-dom";
-import { styled, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 import "./style.css";
 
-const MyComponent = styled("span")({
-  color: "darkslategray",
-  backgroundColor: "aliceblue",
-  padding: 8,
-  borderRadius: 4,
-});
+import styled from "@emotion/styled";
+const Button = styled.button`
+  color: turquoise;
+`;
 
 const App: FC<{ foobar: string }> = () => {
   //const [state, setState] = useState(0);
-  //useEffect(() => {
-  //  if (state % 2 === 1) setState(state + 1);
-  //}, [state]);
-  return <div>hello</div>;
-  //return <Typography>woo</Typography>;
+  //return <div>hello</div>;
+  return <Button>foo</Button>;
   return (
     /*<MyContext.Provider value={String(`--${state}`)}>
       <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>
     */
     <div className="hello world" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       <div>hello</div>
-      <MyComponent>woo</MyComponent>
+      <Button>woo</Button>
       {/*<Typography>
         <span>world</span>
       </Typography>*/}

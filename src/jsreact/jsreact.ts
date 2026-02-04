@@ -13,6 +13,7 @@ export type IntrinsicProps = JSXProps & {
 }
 type DOMProps = IntrinsicProps & {[k: string]: any};
 
+
 // ReactNode
 export type FunctionComponent<P = {}> = (props: P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps) => ValueOrVNode;
 type ElementType = FunctionComponent<any> | string | FragmentElement | ForwardRefElement | ContextElement;
@@ -286,7 +287,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
         // TODO: fix this??
         console.log("ayaya.beforef", forwardRefVNode, rest, ref)
         leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
-        console.log("ayaya.afterf", leaf)
+        console.log("ayaya.afterf", {leaf, child})
       } break;
       case CONTEXT_PROVIDER_SYMBOL: {
         isContextElement = true;
@@ -337,10 +338,11 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   }
   console.log("ayaya.leaf", {leaf, child, element});
   // loop if necessary
-  const children = leaf.props.children;
   if (element == null) {
-    if (leaf !== child) renderJsxChildren(component, leaf, childOrder);
-    return;
+    if (leaf !== child) {
+      renderJsxChildren(component, leaf, childOrder);
+      return;
+    }
   }
   // set ref
   if (element != null) {
@@ -359,6 +361,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     prevContextValue = context._currentValue;
     context._currentValue = leaf!.props.value;
   }
+  const children = leaf.props?.children;
   if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
