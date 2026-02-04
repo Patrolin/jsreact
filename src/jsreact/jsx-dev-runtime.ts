@@ -1,4 +1,5 @@
-import { VNode } from "./jsreact";
+import type { VNode } from "./jsreact";
+export {Fragment} from "./jsreact";
 
 export function jsxDEV(
   type: VNode["type"],

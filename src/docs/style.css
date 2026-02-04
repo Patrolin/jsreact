@@ -1,13 +1,5 @@
 :root {
 	font-family: Roboto, Arial, Helvetica, sans-serif;
-	color: #222;
-	background-color: #ffffff;
-}
-@media (prefers-color-scheme: dark) {
-	:root {
-		color: #ccc;
-		background-color: #1a1a1a;
-	}
 }
 html, body {
 	width: 100%;
@@ -18,4 +10,7 @@ html, body {
 #app {
 	display: flex;
 	flex-direction: column;
+}
+.jsreact-error {
+	padding: 0 16px;
 }
