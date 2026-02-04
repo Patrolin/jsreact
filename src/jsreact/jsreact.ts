@@ -64,8 +64,16 @@ const FRAGMENT_SYMBOL = Symbol.for("react.fragment")
 type FragmentElement = { $$typeof: symbol };
 export const Fragment: FragmentElement = { $$typeof: FRAGMENT_SYMBOL };
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
+  console.log("ayaya.createElement", type, props, children);
   const { key, ...rest } = props ?? {};
-  return { type, key, props: {...rest, children} };
+  return {
+    type,
+    key,
+    props: {
+      children: children.length === 1 ? children[0] : children,
+      ...rest, // NOTE: some people (MUI) pass children inside props...
+    },
+  };
 }
 export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
   return component;
@@ -75,7 +83,11 @@ export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 type ForwardRefElement<P = {}, R = HTMLElement> = { $$typeof: symbol; render: ForwardFn<P, R> };
 export function forwardRef<R = HTMLElement, P = {}>(render: ForwardFn<P, R>): FC<P> {
   return (props) => {
-    console.log("ayaya.forwardRef()", props, render);
+    console.log("ayaya.forwardRef()", {
+      type: { $$typeof: FORWARD_REF_SYMBOL, render },
+      key: undefined,
+      props,
+    });
     return {
       type: { $$typeof: FORWARD_REF_SYMBOL, render },
       key: undefined,
@@ -339,7 +351,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     }
     applyJsxProps(component, leaf.props);
   }
-  console.log("ayaya.leaf", {leaf, child, element});
+  console.log("ayaya.leaf", {parent: parent.element, leaf, child, element});
   // loop if necessary
   if (element == null) {
     if (leaf !== child) return renderJsxChildren(component, leaf, childOrder);
