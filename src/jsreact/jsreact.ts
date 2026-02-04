@@ -19,8 +19,7 @@ export type RefAttributes<R = Element> = {ref?: Ref<R>}
 export type ReactProps = JSXProps & RefAttributes<any>;
 type DOMProps = ReactProps & {
   className?: string[] | string;
-  cssVars?: Record<string, string | number>;
-  style?: CSSProperties;
+  style?: CSSProperties & {[k in `--${string}`]: number | string};
   htmlFor?: string;
   // TODO: more event types
   onClick?: (event: MouseEvent) => void;
@@ -223,19 +222,12 @@ function applyJsxProps(component: JsReactComponent, props: DOMProps) {
     return;
   }
   // style
-  const {ref, key, htmlFor, style, cssVars, className, children, ...rest} = props;
+  const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
       k = camelCaseToKebabCase(k);
       v = typeof v == "number" ? `${v}px` : v ?? null;
       (element as HTMLElement).style.setProperty(k, v);
-    }
-  }
-  // cssVars
-  if (cssVars) {
-    for (let [k, v] of Object.entries(cssVars)) {
-      v = typeof v == "number" ? `${v}px` : v ?? null;
-      (element as HTMLElement).style.setProperty(`--${k}`, v);
     }
   }
   // className
