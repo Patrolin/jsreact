@@ -3,25 +3,54 @@ export type CSSProperties = CSS.Properties<string | number>;
 
 // IntrinsicProps
 type JsxKey = string | number | boolean | null | undefined;
-export type IntrinsicProps = {
-  key?: JsxKey;
+type JSXProps = {children?: ReactNode, key?: JsxKey};
+export type IntrinsicProps = JSXProps & {
   className?: string[] | string;
   cssVars?: Record<string, string | number>;
   style?: CSSProperties;
   onClick?: (event: MouseEvent) => void;
 }
 type TextProps = string | number | boolean | null | undefined;
-type JSXProps = {children?: ReactNode};
-type DOMProps = IntrinsicProps & JSXProps & {[key: string]: any};
+type DOMProps = IntrinsicProps & {[k: string]: any};
 
-export const Fragment = undefined;
-export type ForwardRefVNode = {$$typeof: Symbol; propTypes: DOMProps; render: (props: DOMProps, ref: object) => VNode};
-export function forwardRef(render: any) {
-  return { $$typeof: Symbol.for("react.forward_ref"), render };
-}
+// createElement()
+type FragmentElement = null;
+export const Fragment = null;
 export function createElement(type: VNode["type"], props: VNode["props"], ...children: ReactNode[]): VNode {
   const { key, ...rest } = props;
   return { type, key, props: {...rest, children} };
+}
+// forwardRef()
+export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
+type ForwardRefElement = { $$typeof: Symbol; render: (props: DOMProps, ref: object) => VNode };
+export function forwardRef(render: any) {
+  return { $$typeof: FORWARD_REF_SYMBOL, render };
+}
+// createContext()
+const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
+type ContextElement = { $$typeof: Symbol, context: Context<any> };
+type Context<T> = {
+  _currentValue: T;
+  Provider: FC<{value: T}>;
+  Consumer: FC<{children: (value: T) => ReactNode}>;
+}
+export function createContext<T>(defaultValue: T) {
+  const context: Context<T> = {
+    _currentValue: defaultValue,
+    Provider: (props) => {
+      /* NOTE: key prop is handled automatically */
+      return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props};
+    },
+    Consumer: ({children}) => {
+      if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
+      const value = useContext(context);
+      return {type: Fragment, key: undefined, props: {children: children(value)}};
+    },
+  }
+  return context;
+}
+export function useContext<T>(context: Context<T>): T {
+  return context._currentValue;
 }
 export function isValidElement(value: any): value is VNode {
   return "type" in value && "props" in value;
@@ -40,8 +69,8 @@ export const Children = {
 }
 
 // ReactNode
-export type FunctionComponent<P = {}> = (props: P & JSXProps) => ValueOrVNode;
-type ElementType = FunctionComponent<any> | string | undefined | ForwardRefVNode;
+export type FunctionComponent<P = {}> = (props: P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps) => ValueOrVNode;
+type ElementType = FunctionComponent<any> | string | FragmentElement | ForwardRefElement | ContextElement;
 export interface VNode {
   type: ElementType;
   key: JsxKey;
@@ -53,14 +82,16 @@ export interface VNode {
     columnNumber: number;
   } | null;
 }
-export type ValueOrVNode =
-  | VNode
+type Value =
   | string
   | bigint
   | number
   | boolean
   | null
   | undefined
+export type ValueOrVNode =
+  | Value
+  | VNode
 export type ReactNode =
   | ValueOrVNode
   | ReactNode[]
@@ -77,7 +108,6 @@ declare global {
   }
 }
 export type FC<T = {}> = FunctionComponent<T>;
-export const SYMBOL_FORWARD_REF = typeof Symbol === "function" && Symbol.for ? Symbol.for("react.forward_ref") : 0xead0;
 
 // implementation
 type Component = {
@@ -91,8 +121,6 @@ type Component = {
   hookIndex: number;
   /** hook state */
   hooks: any[];
-  /** implementation detail */
-  ref: object;
   /** the key that the component was rendered as */
   key: string;
   /** implementation detail */
@@ -179,12 +207,18 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     return;
   }
   // get component state
-  let key = isVNode(child) ? child.key : null;
-  if (key == null) {
-    key = `_${parent.childIndex++}`;
-  } else {
-    key = String(key);
+  let keyLeft = "Text";
+  let keyRight;
+  if (isVNode(child)) {
+    keyLeft = typeof child.type === "string" ? child.type : (child.type as any)?.name ?? "";
+    keyRight = child.key;
   }
+  if (keyRight == null) {
+    keyRight = parent.childIndex++;
+  } else {
+    keyRight = keyRight;
+  }
+  const key = `${keyLeft}.${keyRight}`;
   let component = parent.children[key];
   if (component == null) {
     component = {
@@ -193,7 +227,6 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
-      ref: {},
       key,
       childIndex: 0,
       children: {},
@@ -211,11 +244,26 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
   $component = component;
   component.node = child;
   let leaf = child;
+  let isContextElement = false;
   while (isVNode(leaf)) {
     if (typeof leaf.type === "function") leaf = leaf.type(leaf.props);
-    else if ((leaf.type as ForwardRefVNode | undefined)?.$$typeof === SYMBOL_FORWARD_REF) {
-      const forwardRefVNode = leaf.type as ForwardRefVNode;
-      leaf = forwardRefVNode.render(leaf.props, component.ref);
+    else if (leaf.type != null && typeof leaf.type === "object") {
+      switch (leaf.type.$$typeof) {
+      case FORWARD_REF_SYMBOL: {
+        const forwardRefVNode = leaf.type as ForwardRefElement;
+        const {ref, ...rest} = leaf.props;
+        leaf = forwardRefVNode.render(rest, ref);
+      } break;
+      case CONTEXT_PROVIDER_SYMBOL: {
+        isContextElement = true;
+      } break;
+      default: {
+        const message = "Not implemented: leaf type";
+        console.error(message);
+        throw leaf.type;
+      }
+      }
+      break;
     } else break;
   }
   if (!isVNode(leaf)) {
@@ -227,7 +275,7 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
   }
   // create element
   let element = component.element;
-  if (leaf.type) {
+  if (typeof leaf.type === "string") {
     if (element != null && (element?.tagName?.toLowerCase() ?? "Text") !== leaf.type) {
       let node = component.node;
       let source = "";
@@ -259,19 +307,20 @@ function renderJsxChildren(parent: Component, child: ReactNode, childOrder: Comp
     childOrder = [];
   }
   // render children
+  let prevContextValue;
+  let context: Context<any>;
+  if (isContextElement) {
+    context = (leaf.type as ContextElement).context;
+    prevContextValue = context._currentValue;
+    context._currentValue = leaf.props.value;
+  }
   const children = leaf.props.children;
   if (children != null) renderChildren(component, leaf.props.children, childOrder);
+  if (isContextElement) context!._currentValue = prevContextValue;
 }
 function renderChildren(parent: Component, children: ReactNode, childOrder: Component[]) {
   renderJsxChildren(parent, children, childOrder);
-  // remove unused children
-  for (let c of Object.values(parent.children)) {
-    if (c.flags !== parent.flags) {
-      c.element?.remove();
-      c.root = null as any; // delete cyclic reference to help the garbage collector
-      delete parent.children[c.key]; // delete old state
-    }
-  }
+  removeUnusedChildren(parent, parent.flags);
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null) {
@@ -285,6 +334,16 @@ function renderChildren(parent: Component, children: ReactNode, childOrder: Comp
       }
       prevElement = childElement;
     }
+  }
+}
+function removeUnusedChildren(parent: Component, parentFlags: number) {
+  for (let c of Object.values(parent.children)) {
+    if (c.flags !== parentFlags) {
+      c.element?.remove();
+      c.root = null as any; // delete cyclic reference to help the garbage collector
+      delete parent.children[c.key]; // delete old state
+    }
+    if (c.element == null) removeUnusedChildren(c, parentFlags);
   }
 }
 function _rerender(component: Component) {
@@ -307,7 +366,6 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
-      ref: {},
       key: "",
       childIndex: 0,
       children: {},
@@ -335,6 +393,7 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
 }
 type MutableRef<T> = {current: T};
 export function useRef<T>(defaultState: T): MutableRef<T> {
+  if (typeof defaultState === "function") throw "Not implemented: defaultState function";
   return useHook({current: defaultState});
 }
 export function useState<T>(defaultState: T): [T, (newValue: T) => void] {
@@ -351,34 +410,28 @@ function dependenciesDiffer(prevDeps: any[] | null, deps: any[] | null): boolean
 }
 /** NOTE: prefer `useRef()` for better performance */
 export function useEffect(callback: () => void, dependencies: any[] | null = null): void {
-  const ref = useHook({prevDeps: null as any[] | null});
-  if (dependenciesDiffer(ref.prevDeps, dependencies)) {
-    ref.prevDeps = [...(dependencies ?? [])];
+  const hook = useHook({prevDeps: null as any[] | null});
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
+    hook.prevDeps = [...(dependencies ?? [])];
     setTimeout(callback, 0);
   }
 }
 export function useMemo<T>(callback: () => T, dependencies: any[] | null = null): T {
-  const ref = useHook({current: null as T, prevDeps: null as any[] | null});
-  if (dependenciesDiffer(ref.prevDeps, dependencies)) {
-    ref.prevDeps = [...(dependencies ?? [])];
-    ref.current = callback();
+  const hook = useHook({current: null as T, prevDeps: null as any[] | null});
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
+    hook.prevDeps = [...(dependencies ?? [])];
+    hook.current = callback();
   }
-  return ref.current;
+  return hook.current;
 }
 export function useCallback<T extends Function>(callback: T, _dependencies: any[] | null = null) {
-  const ref = useHook({current: (() => {}) as unknown as T})
-  ref.current = callback; // NOTE: you already created the lambda, might as well use it...
-  return ref.current;
+  const hook = useHook({current: (() => {}) as unknown as T})
+  hook.current = callback; // NOTE: you already created the lambda, might as well use it...
+  return hook.current;
 }
 export function useId(): string {
-  const ref = useHook({ current: "" });
-  if (ref.current === "") ref.current = String(Math.random());
-  return ref.current;
+  const hook = useHook({ current: "" });
+  if (hook.current === "") hook.current = String(Math.random());
+  return hook.current;
 }
 // TODO: more hooks?
-//export function useContext() {}
-//function throwNotImplemented(fnName: string): never {
-//  throw new Error(`React.${fnName} is not implemented in jsreactaa`);
-//}
-//export const createContext = () => throwNotImplemented("createContext");
-//export const useReducer = () => throwNotImplemented("useReducer");
