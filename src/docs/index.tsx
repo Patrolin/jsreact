@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import { FC, forwardRef, ReactNode } from "react";
 import { render } from "react-dom";
 import { Typography } from "@mui/material";
 import "./style.css";
@@ -8,9 +8,19 @@ const Button = styled.button`
   color: turquoise;
 `;
 
+const MyInput = forwardRef<HTMLInputElement, { label: string }>(function MyInput(props, ref) {
+  return (
+    <label>
+      {props.label}
+      <input ref={ref} />
+    </label>
+  );
+});
+
 const App: FC<{ foobar: string }> = () => {
   //const [state, setState] = useState(0);
   //return <div>hello</div>;
+  //return <MyInput>hello</MyInput>;
   return <Button>foo</Button>;
   return (
     /*<MyContext.Provider value={String(`--${state}`)}>

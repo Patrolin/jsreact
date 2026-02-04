@@ -15,7 +15,11 @@ type DOMProps = IntrinsicProps & {[k: string]: any};
 
 
 // ReactNode
-export type FunctionComponent<P = {}> = (props: P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps) => ValueOrVNode;
+type FunctionComponentProps<P = {}> = P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps;
+export type FunctionComponent<P = {}> = (props: FunctionComponentProps<P>) => ValueOrVNode;
+type ForwardFn<P = {}, R = HTMLElement> = (props: FunctionComponentProps<P>, ref: MutableRef<R>) => ValueOrVNode;
+export type FC<P = {}> = FunctionComponent<P>;
+
 type ElementType = FunctionComponent<any> | string | FragmentElement | ForwardRefElement | ContextElement;
 export interface VNode {
   type: ElementType;
@@ -52,7 +56,6 @@ declare global {
     interface ElementChildrenAttribute {children: {}}
   }
 }
-export type FC<T = {}> = FunctionComponent<T>;
 
 // React.Component
 export class Component {type: string};
@@ -69,15 +72,15 @@ export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
 }
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
-type ForwardRefElement<T = any> = { $$typeof: symbol; render: (props: T & JSXProps, ref: IntrinsicProps["ref"]) => VNode };
-export function forwardRef<T>(render: ForwardRefElement<T>["render"]): FC<T> {
+type ForwardRefElement<P = {}, R = HTMLElement> = { $$typeof: symbol; render: ForwardFn<P, R> };
+export function forwardRef<R = HTMLElement, P = {}>(render: ForwardFn<P, R>): FC<P> {
   return (props) => {
     console.log("ayaya.forwardRef()", props, render);
     return {
       type: { $$typeof: FORWARD_REF_SYMBOL, render },
       key: undefined,
       props,
-    }
+    };
   }
 }
 type Or<T, C> = T | C;
@@ -285,7 +288,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
         const forwardRefVNode = leaf.type as ForwardRefElement;
         const {ref, ...rest} = leaf.props;
         // TODO: fix this??
-        console.log("ayaya.beforef", forwardRefVNode, rest, ref)
+        console.log("ayaya.beforef", child, rest, ref)
         leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
         console.log("ayaya.afterf", {leaf, child})
       } break;
