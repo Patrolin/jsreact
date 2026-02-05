@@ -452,10 +452,10 @@ function _rerender(component: JsReactComponent) {
   if (infiniteLoop) infiniteLoop = whoami(2);
   const rootComponent = component.root;
   const doTheRender = () => {
-    rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
-    rootComponent.childIndex = 0;
     try {
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
+      rootComponent.childIndex = 0;
+      rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
       renderChildren(rootComponent, rootComponent.node as any, []);
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
