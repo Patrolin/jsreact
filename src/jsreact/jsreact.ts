@@ -388,7 +388,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     prevContextValue = context._currentValue;
     context._currentValue = (leaf as VNode).props.value;
   }
-  let children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
+  const children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
   //console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, children, isElementNew});
   if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
