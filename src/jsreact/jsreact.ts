@@ -196,7 +196,7 @@ type JsReactComponent = {
   flags: number;
 };
 const FLAGS_WILL_RENDER_NEXT_FRAME = 4;
-const FLAGS_DID_RENDER = 2;
+const FLAGS_IS_RENDERING = 2;
 const FLAGS_GC = 1;
 // apply intrinsic props
 function camelCaseToKebabCase(camelCase: string) {
@@ -452,28 +452,25 @@ function _rerender(component: JsReactComponent) {
   if (infiniteLoop) infiniteLoop = whoami(2);
   const rootComponent = component.root;
   const doTheRender = () => {
-    rootComponent.flags = FLAGS_DID_RENDER | (1 - (rootComponent.flags & FLAGS_GC));
+    rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
     rootComponent.childIndex = 0;
     try {
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
       renderChildren(rootComponent, rootComponent.node as any, []);
+      rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack ?? error}.</h3>`;
       }
       throw error;
     }
-    // NOTE: firefox schedules setTimeout() after requestAnimationFrame(), so we need to do a requestAnimationFrame() here
-    requestAnimationFrame(() => {
-      rootComponent.flags = rootComponent.flags & ~FLAGS_DID_RENDER;
-    });
   }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
-  if ((rootComponent.flags & FLAGS_DID_RENDER) === 0) {
+  if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
     doTheRender();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
-    requestAnimationFrame(doTheRender); // NOTE: run after doTheRender(), including its requestAnimationFrame()
+    requestAnimationFrame(doTheRender);
   }
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
