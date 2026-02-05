@@ -463,16 +463,17 @@ function _rerender(component: JsReactComponent) {
       }
       throw error;
     }
-    setTimeout(() => {
+    // NOTE: firefox schedules setTimeout() after requestAnimationFrame(), so we need to do a requestAnimationFrame() here
+    requestAnimationFrame(() => {
       rootComponent.flags = rootComponent.flags & ~FLAGS_DID_RENDER;
-    }, 0);
+    });
   }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
   if ((rootComponent.flags & FLAGS_DID_RENDER) === 0) {
     doTheRender();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
-    requestAnimationFrame(() => setTimeout(doTheRender, 0)); // NOTE: firefox schedules requestAnimationFrame() before setTimeout()
+    requestAnimationFrame(doTheRender); // NOTE: run after doTheRender(), including its requestAnimationFrame()
   }
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
