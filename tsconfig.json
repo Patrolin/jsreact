@@ -2,6 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "jsreact": ["src/jsreact"],
       "react": ["src/jsreact"],
       "react-dom": ["src/jsreact/index-dom.ts"],
       "react/*": ["src/jsreact"]

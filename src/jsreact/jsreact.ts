@@ -2,6 +2,9 @@ import * as CSS from "csstype";
 import { jsx } from "./jsx-runtime";
 export type CSSProperties = CSS.Properties<string | number>;
 
+// env
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
 // events
 export type SyntheticEvent<T = Element, E = globalThis.Event> = Omit<E, "target" | "currentTarget"> & {
   target: T;
@@ -152,7 +155,7 @@ export function isValidElement(value: any): value is Without<ElementType, Value>
 }
 export function cloneElement(vnode: ReactNode, childProps: DOMProps): ValueOrVNode {
   console.log("ayaya.cloneElement")
-  if (Array.isArray(vnode)) throw "Not implemented: cloneElement(array)";
+  if (Array.isArray(vnode)) throw new Error("Not implemented: cloneElement(array)");
   if (isVNode(vnode)) {return {...vnode, props: childProps}}
   return vnode;
 }
@@ -258,10 +261,10 @@ function applyJsxProps(component: JsReactComponent, props: DOMProps) {
 function isVNode(leaf: ValueOrVNode): leaf is VNode {
   return leaf !== null && typeof leaf === "object";
 }
-function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrder: JsReactComponent[]) {
+function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrder: JsReactComponent[]) {
   // recurse
   if (Array.isArray(child)) {
-    for (let c of child) renderJsxChildren(parent, c, childOrder);
+    for (let c of child) jsreact$renderJsxChildren(parent, c, childOrder);
     return;
   }
   // get component state
@@ -302,14 +305,34 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   let leaf: ValueOrVNode = child;
   let isContextElement = false;
   let isPortalElement = false;
-  if (isVNode(leaf)) {
+  let isElementNew = false;
+  let elementType = "";
+  if (!isVNode(leaf)) {
+    // Value
+    let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
+    if (component.element == null && needText) {
+      isElementNew = true;
+      elementType = "Text";
+      component.element = new Text() as unknown as Element;
+    }
+    const textProps: TextProps = {value: leaf};
+    applyJsxProps(component, textProps);
+  } else {
     if (typeof leaf.type === "function") {
+      // function component
       leaf = leaf.type(leaf.props);
+    } else if (typeof leaf.type === "string") {
+      // HTML element
+      if (component.element == null) {
+        isElementNew = true;
+        elementType = leaf.type;
+        component.element = document.createElement(leaf.type);
+      }
+      applyJsxProps(component, leaf.props);
     } else if (leaf.type != null && typeof leaf.type === "object") {
+      // special elements
       switch (leaf.type.$$typeof) {
-      case FRAGMENT_SYMBOL: {
-        throw "fragment";
-      } break;
+      case FRAGMENT_SYMBOL: {} break;
       case FORWARD_REF_SYMBOL: {
         const forwardRefVNode = leaf.type as ForwardRefElement;
         const {ref, ...rest} = leaf.props;
@@ -320,9 +343,9 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
         isContextElement = true;
       } break;
       case PORTAL_SYMBOL: {
-        const portalElement = leaf.type as PortalElement;
-        component.element = portalElement.to;
+        component.element = (leaf.type as PortalElement).to;
         isPortalElement = true;
+        isElementNew = isComponentNew;
       } break;
       default: {
         console.error(leaf.type);
@@ -330,26 +353,16 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
       }}
     }
   }
-  // debug
+  // assert number of hooks is constant
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
     throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
   }
-  // create element
-  let isElementNew = false;
-  let element = component.element;
-  if (!isVNode(leaf)) {
-    let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
-    if (element == null && needText) {
-      isElementNew = true;
-      element = new Text() as unknown as Element;
-      component.element = element;
-    }
-    const textProps: TextProps = {value: leaf};
-    applyJsxProps(component, textProps);
-    /* NOTE: `false, null, ...` still need to register as children for `childIndex` */
-  } else if (typeof leaf.type === "string") {
-    if (element != null && element?.tagName?.toLowerCase() !== leaf.type) {
+  const element = component.element;
+  if (element != null) {
+    // assert don't need key prop
+    if (elementType && (element?.tagName?.toLowerCase() ?? "Text") !== elementType) {
+      console.log("ayaya.assertKey", {element, isPortalElement});
       let node = child;
       let source = "";
       if (isVNode(node)) {
@@ -361,22 +374,15 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       console.error(`${error}:`, {before: component.element, next: node});
       if (source) throw error; // NOTE: only runs in dev build
-    };
-    if (element == null) {
-      isElementNew = true;
-      element = document.createElement(leaf.type as string);
-      component.element = element;
     }
-    applyJsxProps(component, leaf.props);
-  }
-  // set ref = element
-  if (element != null) {
-    if (isElementNew || (isComponentNew && isPortalElement)) {
+    // set ref = element
+    if (isElementNew) {
       const ref = isVNode(child) ? child.props.ref : undefined;
       if (isCallback(ref)) ref(element);
       else if (ref) ref.current = element;
     }
     // set childOrder
+    console.log("ayaya.render.hasElement", component, isPortalElement);
     if (!isPortalElement) childOrder.push(component);
     childOrder = [];
   }
@@ -389,16 +395,19 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     context._currentValue = (leaf as VNode).props.value;
   }
   const children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
-  //console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, children, isElementNew});
-  if (children != null) renderChildren(component, children, childOrder);
+  if (isPortalElement) {
+    console.log("ayaya.leaf.portal", component, children, element);
+  }
+  console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
+  if (children != null) jsreact$renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
-function renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
-  renderJsxChildren(parent, children, childOrder);
+function jsreact$renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
+  jsreact$renderJsxChildren(parent, children, childOrder);
   removeUnusedChildren(parent, parent.flags);
   // reorder used children
   const parentElement = parent.element;
-  //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent, childOrder})
+  //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -434,41 +443,78 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   }
 }
 // debug tools
-const ENABLE_WHY_DID_YOU_RENDER = true;
-function whoami(offset = 2) {
-  const stacktrace = new Error().stack ?? "";
-  let lines = stacktrace.split("\n").slice(offset);
-  if (lines.length > 3) lines = [...lines.slice(0, 3), lines[0].startsWith("  ") ? "  ..." : "..."];
-  return lines.join("\n");
+const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.parent.gc.popper.";
+function whoami() {
+  // NOTE: firefox is trash, so we have to print one level lower than we would like...
+  if (Error.captureStackTrace) {
+    const stacktrace = {} as unknown as {stack: string};
+    Error.captureStackTrace(stacktrace, whoami);
+    const lines = stacktrace.stack;
+    return lines.slice(lines.indexOf("\n") + 1);
+  } else {
+    const stacktrace = new Error().stack ?? "";
+    let lines = stacktrace.split("\n").slice(2);
+    if (lines.length > 3) lines = [...lines.slice(0, 3), lines[0].startsWith("  ") ? "  ..." : "..."];
+    return lines.join("\n");
+  }
 }
 let renderCount = 0;
 const MAX_RENDER_COUNT: number | null = null;
 // entry
-function _rerender(component: JsReactComponent) {
-  if (ENABLE_WHY_DID_YOU_RENDER) console.log(`.render.leaf.parent.gc, Rerender caused by:\n${whoami(3)}`);
+function rerender(component: JsReactComponent) {
+  if (ENABLE_WHY_DID_YOU_RENDER) {
+    const prefix = typeof ENABLE_WHY_DID_YOU_RENDER === "string" ? ENABLE_WHY_DID_YOU_RENDER : "";
+    console.log(`${prefix}Render caused by:\n${whoami()}`);
+  }
   let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
-  if (infiniteLoop) infiniteLoop = whoami(3);
+  if (infiniteLoop) infiniteLoop = whoami();
   const rootComponent = component.root;
-  const doTheRender = () => {
+  const jsreact$doTheRender = () => {
     try {
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
       rootComponent.childIndex = 0;
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
-      renderChildren(rootComponent, rootComponent.node as any, []);
+      jsreact$renderChildren(rootComponent, rootComponent.node as any, []);
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack ?? error}.</h3>`;
+      console.log("error", {error})
+      if (!IS_PRODUCTION) {
+        let message = error;
+        if (message instanceof Error) {
+          let lines = (error.stack ?? "").split("\n");
+          const acc: string[] = [];
+          if (lines[0].includes("Error")) {
+            acc.push(lines[0]);
+            lines = lines.slice(1);
+          } else {
+            acc.push(String(error));
+          }
+          let haveEllipsis = false;
+          for (let line of lines) {
+            if (line === "") continue;
+            if (line.includes("jsreact$")) {
+              if (!haveEllipsis) {
+                acc.push("    at ...");
+                haveEllipsis = true;
+              }
+            } else {
+              haveEllipsis = false;
+              acc.push(line.startsWith(" ") ? line : "    " + line);
+            };
+          }
+          message = acc.join("\n");
+        }
+        document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">Uncaught ${message}</h3>`;
       }
       throw error;
     }
   }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
   if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
-    doTheRender();
+    jsreact$doTheRender();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
-    requestAnimationFrame(doTheRender);
+    requestAnimationFrame(jsreact$doTheRender);
   }
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
@@ -488,7 +534,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
     };
     rootComponent.root = rootComponent;
     console.log("ayaya.root", rootComponent);
-    _rerender(rootComponent);
+    rerender(rootComponent);
   }
   window.addEventListener("DOMContentLoaded", onLoad);
 }
@@ -496,7 +542,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 // hooks
 /** the current component */
 let $component = {} as JsReactComponent;
-export const useRerender = () => () => _rerender($component);
+export const useRerender = () => () => rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
@@ -542,7 +588,7 @@ export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newV
       else hook.current = newState;
       if (!Object.is(hook.current, prevValue)) {
         console.log("ayaya.setState()", prevValue, hook.current)
-        _rerender($component);
+        rerender($component);
       }
     }
   }
@@ -586,7 +632,7 @@ export function useCallback<T extends Function>(callback: T, _dependencies?: any
   return hook.current;
 }
 export function useId(idProp): string {
-  if (idProp) throw `Not implemented: idProp`
+  if (idProp) throw new Error(`Not implemented: idProp`);
   console.log("ayaya.useId");
   const hook = useHook({ current: "" });
   if (hook.current === "") hook.current = String(Math.random());

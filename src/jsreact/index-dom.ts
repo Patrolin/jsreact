@@ -1,5 +1,6 @@
 export * from "./jsreact-dom";
 import * as JsReactDOM from "./jsreact-dom";
+
 const ReactDOM = new Proxy(JsReactDOM, {
   get(target, prop: string) {
     console.log(`ReactDOM.${prop}`);
