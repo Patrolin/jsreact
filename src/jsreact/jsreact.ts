@@ -434,22 +434,20 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   }
 }
 // debug tools
-let renderCount = 0;
-const MAX_RENDER_COUNT: number | null = null;
 const ENABLE_WHY_DID_YOU_RENDER = true;
-function whoami(offset = 3) {
+function whoami(offset = 2) {
   const stacktrace = new Error().stack ?? "";
   let lines = stacktrace.split("\n").slice(offset);
   if (lines.length > 3) lines = [...lines.slice(0, 3), lines[0].startsWith("  ") ? "  ..." : "..."];
   return lines.join("\n");
 }
+let renderCount = 0;
+const MAX_RENDER_COUNT: number | null = null;
 // entry
 function _rerender(component: JsReactComponent) {
-  if (ENABLE_WHY_DID_YOU_RENDER) {
-    console.log(`.render.leaf.parent.gc, Rerender caused by:\n${whoami()}`);
-  }
+  if (ENABLE_WHY_DID_YOU_RENDER) console.log(`.render.leaf.parent.gc, Rerender caused by:\n${whoami(3)}`);
   let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
-  if (infiniteLoop) infiniteLoop = whoami(2);
+  if (infiniteLoop) infiniteLoop = whoami(3);
   const rootComponent = component.root;
   const doTheRender = () => {
     try {
