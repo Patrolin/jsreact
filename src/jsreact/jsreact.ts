@@ -142,8 +142,8 @@ export function useContext<T>(context: Context<T>): T {
 // createPortal()
 const PORTAL_SYMBOL = Symbol.for("react.portal");
 type PortalElement = {$$typeof: Symbol; to: Element};
-export function createPortal(children: ReactNode, node: Element): VNode {
-  return {type: {$$typeof: PORTAL_SYMBOL, to: node}, key: undefined, props: {children}};
+export function createPortal(children: ReactNode, node: Element, key?: JsxKey): VNode {
+  return {type: {$$typeof: PORTAL_SYMBOL, to: node}, key, props: {children}};
 }
 type Without<T, U> = T extends U ? never : T;
 export function isValidElement(value: any): value is Without<ElementType, Value> {
@@ -192,9 +192,12 @@ type JsReactComponent = {
   prevEventHandlers: Record<string, ((event: any) => void) | undefined>;
   /** implementation detail */
   root: JsReactComponent;
-  /* u1 willRerenderNextFrame, u1 gc */
+  /** implementation detail */
   flags: number;
 };
+const FLAGS_WILL_RENDER_NEXT_FRAME = 4;
+const FLAGS_DID_RENDER = 2;
+const FLAGS_GC = 1;
 // apply intrinsic props
 function camelCaseToKebabCase(camelCase: string) {
   // TODO: optimize this function
@@ -272,7 +275,8 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   }
   const key = `${keyLeft}_${keyRight}`;
   let component = parent.children[key];
-  if (component == null) {
+  const isComponentNew = component == null;
+  if (isComponentNew) {
     component = {
       node: child,
       element: undefined,
@@ -284,7 +288,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
       children: {},
       prevEventHandlers: {},
       root: parent.root,
-      flags: 1 - parent.flags,
+      flags: 0,
     };
     parent.children[key] = component;
   }
@@ -334,7 +338,6 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   // create element
   let isElementNew = false;
   let element = component.element;
-  //console.log("ayaya.leaf", leaf);
   if (!isVNode(leaf)) {
     let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
     if (element == null && needText) {
@@ -368,7 +371,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   }
   // set ref = element
   if (element != null) {
-    if (isElementNew) {
+    if (isElementNew || (isComponentNew && isPortalElement)) {
       const ref = isVNode(child) ? child.props.ref : undefined;
       if (isCallback(ref)) ref(element);
       else if (ref) ref.current = element;
@@ -386,12 +389,13 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     context._currentValue = (leaf as VNode).props.value;
   }
   let children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
+  //console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, children, isElementNew});
   if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
 function renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
   renderJsxChildren(parent, children, childOrder);
-  removeUnusedChildren(parent, parent.flags & 1);
+  removeUnusedChildren(parent, parent.flags);
   // reorder used children
   const parentElement = parent.element;
   //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent, childOrder})
@@ -408,24 +412,24 @@ function renderChildren(parent: JsReactComponent, children: ReactNode, childOrde
     }
   }
 }
-function removeUnusedChildren(parent: JsReactComponent, parentFlags: number) {
+function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   //console.log("ayaya.gc.removeUnusedChildren", parent);
   for (let component of Object.values(parent.children)) {
-    if (component.flags !== parentFlags) {
+    if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; // delete old state
       const $$typeof = (component.node as any)?.type?.$$typeof;
       //console.log("ayaya.gc", component, $$typeof);
+      // set ref = null
+      const child = component.node;
+      const ref = isVNode(child) ? child.props.ref : undefined;
+      if (isCallback(ref)) ref(null);
+      else if (ref) ref.current = null;
+      // remove the element
       if ($$typeof !== PORTAL_SYMBOL) {
-        // set ref = null
-        const child = component.node;
-        const ref = isVNode(child) ? child.props.ref : undefined;
-        if (isCallback(ref)) ref(null);
-        else if (ref) ref.current = null;
-        // remove the element
         const element = component.element;
         if (element != null) element.remove();
       }
-      removeUnusedChildren(component, parentFlags);
+      removeUnusedChildren(component, parentGcFlag);
     }
   }
 }
@@ -435,33 +439,40 @@ const MAX_RENDER_COUNT: number | null = null;
 const ENABLE_WHY_DID_YOU_RENDER = true;
 function whoami(offset = 3) {
   const stacktrace = new Error().stack ?? "";
-  return stacktrace.split("\n").slice(offset).join("\n");
+  let lines = stacktrace.split("\n").slice(offset);
+  if (lines.length > 3) lines = [...lines.slice(0, 3), lines[0].startsWith("  ") ? "  ..." : "..."];
+  return lines.join("\n");
 }
 // entry
 function _rerender(component: JsReactComponent) {
   if (ENABLE_WHY_DID_YOU_RENDER) {
-    console.log(`.leaf.parent.gc, Rerender caused by:\n${whoami()}`);
+    console.log(`.render.leaf.parent.gc, Rerender caused by:\n${whoami()}`);
   }
   let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
   if (infiniteLoop) infiniteLoop = whoami(2);
   const rootComponent = component.root;
-  if ((rootComponent.flags & 2) === 0) {
-    rootComponent.flags = rootComponent.flags | 2;
-    requestAnimationFrame(() => {
-      // NOTE: this may execute concurrently!
-      const nextGcFlag = 1 - (component.flags & 1);
-      rootComponent.flags = nextGcFlag;
-      rootComponent.childIndex = 0;
-      try {
-        if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
-        renderChildren(rootComponent, rootComponent.node as any, []);
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack ?? error}.</h3>`;
-        }
-        throw error;
+  const doTheRender = () => {
+    rootComponent.flags = FLAGS_DID_RENDER | (1 - (rootComponent.flags & FLAGS_GC));
+    rootComponent.childIndex = 0;
+    try {
+      if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
+      renderChildren(rootComponent, rootComponent.node as any, []);
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack ?? error}.</h3>`;
       }
-    });
+      throw error;
+    }
+    setTimeout(() => {
+      rootComponent.flags = rootComponent.flags & ~FLAGS_DID_RENDER;
+    }, 0);
+  }
+  //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
+  if ((rootComponent.flags & FLAGS_DID_RENDER) === 0) {
+    doTheRender();
+  } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
+    rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
+    requestAnimationFrame(() => setTimeout(doTheRender, 0)); // NOTE: firefox schedules requestAnimationFrame() before setTimeout()
   }
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
@@ -551,7 +562,6 @@ export function useEffect(callback: () => void, dependencies?: any[]): void {
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    //callback();
     setTimeout(callback, 0);
   }
 }
@@ -560,7 +570,6 @@ export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    //callback();
     setTimeout(callback, 0); // TODO: run after inserted, so that the browser doesn't have to rerender twice in one frame
   }
 }
