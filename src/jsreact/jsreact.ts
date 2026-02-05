@@ -309,7 +309,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
       case FORWARD_REF_SYMBOL: {
         const forwardRefVNode = leaf.type as ForwardRefElement;
         const {ref, ...rest} = leaf.props;
-        console.log("ayaya.leaf.beforeRef", child, rest, ref)
+        //console.log("ayaya.leaf.beforeRef", child, rest, ref)
         leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
       } break;
       case CONTEXT_PROVIDER_SYMBOL: {
@@ -334,7 +334,7 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
   // create element
   let isElementNew = false;
   let element = component.element;
-  console.log("ayaya.leaf", leaf);
+  //console.log("ayaya.leaf", leaf);
   if (!isVNode(leaf)) {
     let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
     if (element == null && needText) {
@@ -386,19 +386,15 @@ function renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrde
     context._currentValue = (leaf as VNode).props.value;
   }
   let children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
-  //if (nodeCount++ > 35) throw "??";
   if (children != null) renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
-let nodeCount = 0;
 function renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
   renderJsxChildren(parent, children, childOrder);
   removeUnusedChildren(parent, parent.flags & 1);
   // reorder used children
   const parentElement = parent.element;
-  if (parentElement != null) {
-    console.log("ayaya.render.parentElement", {a: parent, childOrder})
-  }
+  //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent, childOrder})
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -413,42 +409,41 @@ function renderChildren(parent: JsReactComponent, children: ReactNode, childOrde
   }
 }
 function removeUnusedChildren(parent: JsReactComponent, parentFlags: number) {
-  console.log("ayaya.gc.removeUnusedChildren", parent);
+  //console.log("ayaya.gc.removeUnusedChildren", parent);
   for (let component of Object.values(parent.children)) {
     if (component.flags !== parentFlags) {
-      console.log("ayaya.gc", component);
-      // set ref = null
-      const child = component.node;
-      const ref = isVNode(child) ? child.props.ref : undefined;
-      if (isCallback(ref)) ref(null);
-      else if (ref) ref.current = null;
-      // remove the element
-      const element = component.element;
-      if (element) {
-        element.remove();
-      }
-      component.root = null as any; // delete cyclic reference to help the garbage collector
       delete parent.children[component.key]; // delete old state
+      const $$typeof = (component.node as any)?.type?.$$typeof;
+      //console.log("ayaya.gc", component, $$typeof);
+      if ($$typeof !== PORTAL_SYMBOL) {
+        // set ref = null
+        const child = component.node;
+        const ref = isVNode(child) ? child.props.ref : undefined;
+        if (isCallback(ref)) ref(null);
+        else if (ref) ref.current = null;
+        // remove the element
+        const element = component.element;
+        if (element != null) element.remove();
+      }
+      removeUnusedChildren(component, parentFlags);
     }
-    if (component.element == null) removeUnusedChildren(component, parentFlags);
   }
 }
 // debug tools
 let renderCount = 0;
-const MAX_RENDER_COUNT: number | null = 2;
+const MAX_RENDER_COUNT: number | null = null;
 const ENABLE_WHY_DID_YOU_RENDER = true;
-function whoami() {
+function whoami(offset = 3) {
   const stacktrace = new Error().stack ?? "";
-  return "\n" + stacktrace.split("\n").slice(3).join("\n");
+  return stacktrace.split("\n").slice(offset).join("\n");
 }
 // entry
 function _rerender(component: JsReactComponent) {
   if (ENABLE_WHY_DID_YOU_RENDER) {
-    console.log(".leaf.parent.gc, Rerender caused by:", whoami());
+    console.log(`.leaf.parent.gc, Rerender caused by:\n${whoami()}`);
   }
-  if (MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT) {
-    throw new Error("Infinite loop!");
-  }
+  let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
+  if (infiniteLoop) infiniteLoop = whoami(2);
   const rootComponent = component.root;
   if ((rootComponent.flags & 2) === 0) {
     rootComponent.flags = rootComponent.flags | 2;
@@ -458,10 +453,11 @@ function _rerender(component: JsReactComponent) {
       rootComponent.flags = nextGcFlag;
       rootComponent.childIndex = 0;
       try {
+        if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
         renderChildren(rootComponent, rootComponent.node as any, []);
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack}.</h3>`;
+          document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">${error.stack ?? error}.</h3>`;
         }
         throw error;
       }
