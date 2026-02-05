@@ -105,13 +105,16 @@ export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 type ForwardRefElement<P = {}, R = Element> = { $$typeof: symbol; render: ForwardFn<P, R> };
 export function forwardRef<R = Element, P = {}>(render: ForwardFn<P, R>): FC<P> {
-  return (props) => {
+  // TODO: just noop and always pass ref to reduce tree noise?
+  function forwardRefComponent(props) {
     return {
       type: { $$typeof: FORWARD_REF_SYMBOL, render },
       key: undefined,
       props,
     };
   }
+  forwardRefComponent.displayName = render["displayName"] || render.name || forwardRefComponent.name;
+  return forwardRefComponent
 }
 // createContext()
 const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
@@ -268,8 +271,19 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
     return;
   }
   // get component state
-  const childType = (child as VNode | undefined)?.type ?? "_" + typeof child;
-  let keyLeft = typeof childType === "string" ? childType : (childType as any)?.name ?? "";
+  let keyLeft: string;
+  if (isVNode(child)) {
+    const childType = child.type;
+    if (typeof childType === "string") {
+      keyLeft = childType;
+    } else if (typeof childType === "function") {
+      keyLeft = childType["displayName"] || childType.name;
+    } else {
+      keyLeft = String(childType.$$typeof);
+    }
+  } else {
+    keyLeft = "_" + typeof child;
+  }
   let keyRight = (child as VNode | undefined)?.key;
   if (keyRight == null) {
     keyRight = parent.childIndex++;
@@ -395,10 +409,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
     context._currentValue = (leaf as VNode).props.value;
   }
   const children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
-  if (isPortalElement) {
-    console.log("ayaya.leaf.portal", component, children, element);
-  }
-  console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
+  //console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
   if (children != null) jsreact$renderChildren(component, children, childOrder);
   if (isContextElement) context!._currentValue = prevContextValue;
 }
@@ -422,17 +433,22 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNode, c
   }
 }
 function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
-  //console.log("ayaya.gc.removeUnusedChildren", parent);
+  console.log("ayaya.gc.parent", parent, Object.values(parent.children).map(v => {
+    const $$typeof = (v.node as any)?.type?.$$typeof;
+    return $$typeof;
+  }))
   for (let component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; // delete old state
       const $$typeof = (component.node as any)?.type?.$$typeof;
-      //console.log("ayaya.gc", component, $$typeof);
+      console.log("ayaya.gc", component, $$typeof);
       // set ref = null
-      const child = component.node;
-      const ref = isVNode(child) ? child.props.ref : undefined;
-      if (isCallback(ref)) ref(null);
-      else if (ref) ref.current = null;
+      if (component.element != null) {
+        const child = component.node;
+        const ref = isVNode(child) ? child.props.ref : undefined;
+        if (isCallback(ref)) ref(null);
+        else if (ref) ref.current = null;
+      }
       // remove the element
       if ($$typeof !== PORTAL_SYMBOL) {
         const element = component.element;

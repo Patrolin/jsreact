@@ -3,13 +3,14 @@ import { render } from "react-dom";
 import "./style.css";
 import { PopperDemo } from "./demos/PopperDemo";
 import { PortalDemo } from "./demos/PortalDemo";
+import { BooleanDemo } from "./demos/BooleanDemo";
 
 const App: FC<{ foobar: string }> = () => {
   //return <ATooltip title="hello">world</ATooltip>;
 
-  // portal test
-  return <PortalDemo />;
-  //return <PopperDemo />;
+  //return <BooleanDemo />;
+  //return <PortalDemo />;
+  return <PopperDemo />;
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>
