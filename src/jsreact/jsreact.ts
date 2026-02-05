@@ -561,7 +561,7 @@ export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     //callback();
-    setTimeout(callback, 0); // TODO: run after inserted?
+    setTimeout(callback, 0); // TODO: run after inserted, so that the browser doesn't have to rerender twice in one frame
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
