@@ -519,7 +519,7 @@ export function useImperativeHandle<T>(ref: Ref<T> | null | undefined, createHan
     else ref.current = createHandle();
   }
 }
-export function useRef<T = undefined>(initialValue: T = undefined as T): MutableRef<T> {
+export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   const prevHookCount = $component.hooks.length;
   const hook = useHook({current: undefined as T});
   if ($component.hookIndex > prevHookCount) {
