@@ -560,6 +560,7 @@ function rerender(component: JsReactComponent) {
       if (whyDidYouRender) console.log(whyDidYouRender);
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
       rootComponent.childIndex = 0;
+      rootComponent.hookIndex = 0;
       rootComponent.hooks = [];
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
       jsreact$renderChildren(rootComponent, rootComponent.node as any, []);
@@ -639,7 +640,7 @@ export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   if ($component.hookIndex > prevHookCount) {
     hook.current = initialValue as T;
   }
-  console.log("ayaya.useRef", initialValue, hook);
+  console.log("ayaya.useRef", initialValue);
   return hook;
 }
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
@@ -672,7 +673,7 @@ type UseEffectHook = Hook<{
   prevDeps: any[] | null;
 }>
 export function useEffect(effect: () => (() => void)|null|undefined|void, dependencies?: any[]): void {
-  console.log("ayaya.useEffect", {effect, dependencies});
+  console.log("ayaya.useEffect", effect);
   const hook = useHook<UseEffectHook>({
     $$typeof: USE_EFFECT_SYMBOL,
     cleanup: null,
@@ -711,14 +712,10 @@ export function useCallback<T extends Function>(callback: T, _dependencies?: any
   hook.current = callback; // NOTE: you already created the lambda, might as well use it...
   return hook.current;
 }
-export function useId(idProp): string {
-  if (idProp) throw new Error(`Not implemented: idProp`);
-  console.log("ayaya.useId");
-  const hook = useHook({ current: "" });
-  if (hook.current === "") hook.current = String(Math.random());
-  return hook.current;
+export function useId(_idProp_legacy: any): string {
+  return String($component.root.hookIndex++);
 }
-export function useDebugValue<T>(value: T, formatter?: (value: T) => any) {
+export function useDebugValue<T>(_value: T, _formatter?: (value: T) => any) {
   // TODO: maybe store the debug value?
 }
 // TODO: more hooks?

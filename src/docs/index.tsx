@@ -8,11 +8,11 @@ import { ComponentClassDemo } from "./demos/ComponentClassDemo";
 import { TooltipDemo } from "./demos/TooltipDemo";
 
 const App: FC<{ foobar: string }> = () => {
-  return <BooleanDemo />;
+  //return <BooleanDemo />;
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
   //return <PopperDemo />;
-  //return <TooltipDemo />;
+  return <TooltipDemo />;
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>
