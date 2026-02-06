@@ -378,7 +378,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   if (desiredElementType) {
     const currentElement = component.element;
     // assert don't need key prop
-    if (currentElement != null && currentElement?.tagName?.toLowerCase() !== desiredElementType) {
+    if (currentElement != null && (currentElement?.tagName?.toLowerCase() ?? "Text") !== desiredElementType) {
       console.log("ayaya.assertKey", {desiredElementType});
       let node: Partial<ValueOrVNode> = child;
       let source = "";
@@ -449,7 +449,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; // delete old state
       const $$typeof = (component.node as any)?.type?.$$typeof;
-      //console.log("ayaya.gc", component, $$typeof);
+      console.log("ayaya.gc", component, $$typeof);
       const element = component.element;
       if (element != null) {
         // set ref = null
