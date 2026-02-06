@@ -440,12 +440,12 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   }
   // render children
   const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
-  console.log("ayaya.leaf", {key, component});
-  if (children != null) jsreact$renderChildren(component, children, childOrder);
+  console.log("ayaya.leaf", {key, children});
+  jsreact$renderChildren(component, children, childOrder);
   if (isContext) ((leaf as VNode).type as Context<any>)._currentValue = prevContextValue;
 }
 function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
-  jsreact$renderJsxChildren(parent, children, childOrder);
+  if (children != null) jsreact$renderJsxChildren(parent, children, childOrder);
   removeUnusedChildren(parent, parent.flags & FLAGS_GC);
   // reorder used children
   const parentElement = parent.element;
@@ -467,12 +467,11 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   //console.log("ayaya.gc.parent", {
   //  parent: parent.key,
   //  parentGcFlag,
-  //  children: Object.values(parent.children).map(v =>  v.key)
+  //  children: Object.values(parent.children).map(v =>  v.key),
+  //  z: parent,
   //})
-  console.log("ayaya.gc", parent.key, parent);
+  //console.log("ayaya.gc", parent.key, parent);
   for (let component of Object.values(parent.children)) {
-    const $$typeof = (component.node as any)?.type?.$$typeof;
-    if ($$typeof) console.log("ayaya.gc.typeof", $$typeof, component);
     if (component.flags !== parentGcFlag) {
       //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
       delete parent.children[component.key]; // delete old state
@@ -483,8 +482,9 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
         const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
         setRef(ref, null);
         // remove the element
-        if ($$typeof === PORTAL_SYMBOL) removeUnusedChildren(component, parentGcFlag);
-        else element.remove();
+        const $$typeof = (component.node as any)?.type?.$$typeof;
+        if ($$typeof !== PORTAL_SYMBOL) element.remove();
+        else removeUnusedChildren(component, parentGcFlag);
       } else {
         removeUnusedChildren(component, parentGcFlag);
       }
@@ -492,7 +492,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   }
 }
 // debug tools
-const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.parent.gc.popper.component.";
+const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.gc.parent.popper.component.";
 function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   if (Error.captureStackTrace) {
