@@ -10,13 +10,11 @@ export type Ref<T> = MutableRef<T> | ((value: T) => void) | null;
 export type Value = string | bigint | number | boolean | null | undefined | void;
 export type JsxKey = Value;
 export type JsxProps = {children?: ReactNode, key?: JsxKey};
-export type DOMProps<R = any> = JsxProps & {
+export type DOMProps<R = any> = JsxProps & React.DOMAttributes<R> & {
   ref?: Ref<R | null>;
   className?: string[] | string;
   style?: React.CSSProperties & {[k in `--${string}`]: number | string};
   htmlFor?: string;
-  // TODO: more event types
-  onClick?: (event: MouseEvent) => void;
   [k: string]: any;
 };
 
@@ -42,9 +40,11 @@ type UntypedNamedExoticComponent<P = {}> = {
   $$typeof?: symbol;
   displayName?: NamedExoticComponent["displayName"];
 }
-type PortalVNode = Omit<React.ReactPortal, "key"> & { key?: React.ReactPortal["key"] };
+type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"] };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
-type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
+export const REACT_ELEMENT_TYPE = Symbol.for('react.element');
+export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
+  $$typeof: symbol;
   key?: ReactElement["key"];
   source?: {
     fileName: string;
@@ -54,54 +54,65 @@ type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
 };
 
 // legacy Component class - must be callable as both `new Component()` and `Component()`
+const LEGACY_COMPONENT_STATIC_SUPPORTED: Record<string, boolean> = {
+  contextType: true,
+  contextTypes: false,
+  defaultProps: true,
+  getDerivedStateFromProps: true,
+  getDerivedStateFromError: false,
+};
+const LEGACY_COMPONENT_SUPPORTED: Record<string, boolean> = {
+  componentDidCatch: false,
+  componentDidMount: true,
+  componentDidUpdate: true,
+  componentWillMount: false,
+  componentWillReceiveProps: false,
+  componentWillUpdate: false,
+  componentWillUnmount: true,
+  forceUpdate: true,
+  getSnapshotBeforeUpdate: false,
+  render: true,
+  setState: true,
+  shouldComponentUpdate: false,
+  UNSAFE_componentWillMount: false,
+  UNSAFE_componentWillReceiveProps: false,
+  UNSAFE_componentWillUpdate: false,
+};
+type ComponentClassStatic<P = {}, S = {}, _SS = any> = {
+  readonly contextType?: Context<any>;
+  readonly defaultProps?: Partial<P>;
+  getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
+};
 type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS> & {
-  $$setState: (newState: S) => void;
+  $$setState: (newState: S, callback: (() => void) | undefined) => void;
   $$component: Readonly<JsReactComponent>;
 };
+type Writable<T> = { -readonly [K in keyof T]: T[K] };
 export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
   if (_context != null) throw new Error("Not implemented: Component(props, context)");
   this.props = props;
+  this.state = this.state ?? {};
 }
-Object.defineProperty(Component, "context", {
-  get() {return useContext((this.constructor as any).contextType)}
-});
 Component.prototype.setState = function<P = {}, S = {}, SS = any>(
   this: ComponentClass<P, S, SS>,
   update: Partial<S> | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null),
   callback: any,
 ) {
-  if (callback != null) throw new Error("Not implemented: Component.setState.callback");
+  console.log("ayaya.component", update, callback)
   let diff: Partial<S>;
   if (typeof update === "function") {
     diff = update(this.state, this.props) ?? {};
   } else {
     diff = update;
   }
-  this.$$setState({...this.state, ...diff});
+  this.$$setState({...this.state, ...diff}, callback);
 }
 Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
   rerender(this.$$component);
 }
 Component.prototype.render = function(): ReactNode {return null}
-export class Component2<P = {}, S = {}, _SS = any> {
-  props: Readonly<P>;
-  state: Readonly<S>;
-  static contextType?: Context<any>;
-  get context() {return useContext((this.constructor as any).contextType)}
-  private $$setState: (newState: S) => void;
-  private $$component: JsReactComponent;
-  constructor(props: P, _context: null) {this.props = props};
-  setState(state: Partial<S> | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null)) {
-    let diff: Partial<S>;
-    if (typeof state === "function") {
-      diff = state(this.state, this.props) ?? {};
-    } else {
-      diff = state;
-    }
-    this.$$setState({...this.state, ...diff});
-  }
-  forceUpdate() {rerender(this.$$component)}
-  render(): ReactNode {return null};
+function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
+  return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 export const version = 19;
 // createElement()
@@ -162,20 +173,20 @@ export function useContext<T>(context: Context<T>): T {
 const PORTAL_SYMBOL = Symbol.for("react.portal");
 export function createPortal(children: ReactNode, node: Element, key?: JsxKey): PortalVNode {
   return {
+    $$typeof: REACT_ELEMENT_TYPE,
     type: makeExoticComponent(PORTAL_SYMBOL),
     key: key as VNode["key"],
     props: node,
     children,
   };
 }
-export function isValidElement(value: any): value is Without<ElementType, Value> {
-  console.log("ayaya.isValidElement", value)
-  return typeof value === "object" && "type" in value && ("props" in value || "$$typeof" in value.type);
+export function isValidElement(value: any): value is ReactElement<any, any> {
+  return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
 }
-export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps): ValueOrVNode {
+export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null): ValueOrVNode {
   console.log("ayaya.cloneElement")
   if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
-  if (isVNode(vnode)) {return {...vnode, props: childProps}}
+  if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
 }
 export const Children = {
@@ -198,6 +209,8 @@ type JsReactComponent = {
   node: ValueOrVNode;
   /** HTML element derived from user input */
   element: Element | undefined;
+  /** implementation detail */
+  legacyComponent: ComponentClass<any, any> | undefined;
   /** implementation detail */
   prevHookIndex: number;
   /** implementation detail */
@@ -239,13 +252,6 @@ function camelCaseToKebabCase(camelCase: string) {
 function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
-  if (element instanceof Text) {
-    let value = (props as TextProps).value;
-    const type = typeof value;
-    if (type !== "number" && type !== "bigint") value = value || "";
-    element.textContent = String(value);
-    return;
-  }
   // style
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
@@ -283,9 +289,6 @@ function isIterable(value: ReactNode): value is Iterable<ReactNode> {
 function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
   return leaf !== null && typeof leaf === "object";
 }
-function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
-  return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
-}
 function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
   if (isCallback(ref)) ref(value);
   else if (ref) ref.current = value;
@@ -320,11 +323,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   }
   const key = `${keyLeft}_${keyRight}`;
   let component = parent.children[key];
-  const isComponentNew = component == null;
-  if (isComponentNew) {
+  if (component == null) {
     component = {
       node: child,
       element: undefined,
+      legacyComponent: undefined,
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
@@ -346,12 +349,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   component.node = child;
   let leaf: ReactNodeSync = child;
   let desiredElementType = "";
-  let isContext = false;
+  let context: Context<any> | undefined;
   let prevContextValue: any;
   if (!isVNode(leaf)) {
     // Value
-    const hasText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
-    if (!hasText) return;
+    if (typeof leaf === "boolean" || leaf == null) return;
     desiredElementType = "Text";
   } else {
     const leafType = leaf.type;
@@ -363,17 +365,60 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       case CONTEXT_CONSUMER_SYMBOL:
       case FRAGMENT_SYMBOL:
       case undefined: {
-        isContext = $$typeof === CONTEXT_PROVIDER_SYMBOL;
-        if (isContext) {
-          prevContextValue = (leafType as Context<any>)._currentValue;
-          (leafType as Context<any>)._currentValue = (leaf as VNode).props.value;
+        if ($$typeof === CONTEXT_PROVIDER_SYMBOL) {
+          context = leafType as Context<any>;
+          prevContextValue = context._currentValue;
+          context._currentValue = (leaf as VNode).props.value;
         }
         if (isComponentClass(leafType)) {
-          if ("contextTypes" in leaf) throw "Not implemented: legacy Component.contextTypes";
-          const instance = new leafType(leaf.props, null) as ComponentClass<any, any>;
+          // class props
+          for (let key of Object.keys(leafType)) {
+            if (LEGACY_COMPONENT_STATIC_SUPPORTED[key] === false) {
+              console.log("Component keys:", Object.keys(leafType).filter(v => v in LEGACY_COMPONENT_STATIC_SUPPORTED))
+              throw `Not implemented: Component.${key}`;
+            }
+          }
+          const {contextType, defaultProps, getDerivedStateFromProps} = leafType as unknown as ComponentClassStatic;
+          let instance = component.legacyComponent as Writable<ComponentClass>;
+          const instanceIsNew = instance == null;
+          if (instanceIsNew) {
+            instance = new leafType({...defaultProps, ...leaf.props as object}, null) as Writable<ComponentClass>;
+            component.legacyComponent = instance as ComponentClass;
+          }
+          instance.context = contextType != null ? useContext(contextType) : undefined;
+          // instance props
+          for (let key of Object.keys(leafType.prototype)) {
+            if (LEGACY_COMPONENT_SUPPORTED[key] === false) {
+              console.log("Component keys:", Object.keys(leafType.prototype).filter(v => v in LEGACY_COMPONENT_SUPPORTED))
+              throw `Not implemented: Component.${key}`;
+            }
+          }
+          // confusion ending
+          const prevProps = instance.props;
+          const prevState = instance.state;
           const [state, setState] = useState(instance.state ?? {});
-          instance.state = state; // NOTE: Component class state does not update while rendering!
-          instance.$$setState = setState;
+          instance.props = leaf.props ?? {};
+          instance.state = state;
+          const {componentDidMount, componentDidUpdate, componentWillUnmount} = instance;
+          // getDerivedStateFromProps()
+          if (getDerivedStateFromProps != null) {
+            const diff = getDerivedStateFromProps(instance.props, instance.state);
+            instance.state = {...instance.state, ...diff};
+          }
+          // getSnapshotBeforeUpdate()
+          const snapshot = undefined;
+          // componentDidMount(), componentDidUpdate()
+          useLayoutEffect(() => {
+            if (instanceIsNew) componentDidMount?.call(instance);
+            else componentDidUpdate?.call(instance, prevProps, prevState, snapshot);
+          });
+          // componentWillUnmount()
+          useWillUnmount(componentWillUnmount);
+          // render
+          instance.$$setState = (newState, callback) => {
+            setState(newState); // NOTE: this won't rerender until we render everything
+            if (callback != null) component.root.hooks.push(callback);
+          };
           instance.$$component = component;
           leaf = instance.render() as ReactNodeSync;
         } else {
@@ -391,13 +436,13 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
         childOrder = [];
       } break;
       default:
-        throw String($$typeof);
+        throw new Error(String($$typeof));
       }
     } else if (typeof leafType === "string") {
       // HTML element
       desiredElementType = leafType;
     } else {
-      throw leafType;
+      throw new Error(leafType);
     }
   }
   // assert number of hooks is constant
@@ -421,7 +466,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       }
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       console.error(`${error}:`, {before: component.element, next: node});
-      if (source) throw error; // NOTE: only runs in dev build
+      if (source) throw new Error(error); // NOTE: only runs in dev build
     }
     // use the element
     const isElementNew = currentElement == null;
@@ -442,7 +487,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
   console.log("ayaya.leaf", {key, children});
   jsreact$renderChildren(component, children, childOrder);
-  if (isContext) ((leaf as VNode).type as Context<any>)._currentValue = prevContextValue;
+  if (context != null) context._currentValue = prevContextValue;
 }
 function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder);
@@ -478,11 +523,17 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
       // run cleanup code
       for (let hook of component.hooks) {
         const hookType = hook.$$typeof;
-        if (hookType === USE_EFFECT_SYMBOL) {
-          (hook as UseEffectHook).cleanup?.();
-        } else if (hookType) {
-          throw hookType;
-        }
+        switch (hookType) {
+        case undefined: {} break;
+        case USE_EFFECT_SYMBOL: {
+          (hook as UseEffect).cleanup?.();
+        } break
+        case USE_WILL_UNMOUNT_SYMBOL: {
+          (hook as UseWillUnmount).callback?.call(component.legacyComponent);
+        } break
+        default: {
+          throw new Error(hookType);
+        }}
       }
       const element = component.element;
       if (element != null) {
@@ -492,7 +543,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
         setRef(ref, null);
         // remove the element
         if (removeElement) {
-          const $$typeof = (component.node as any)?.type?.$$typeof;
+          const $$typeof = ((component.node as VNode|null)?.type as NamedExoticComponent|null)?.$$typeof;
           if ($$typeof !== PORTAL_SYMBOL) {
             element.remove();
             removeElement = false;
@@ -559,17 +610,16 @@ function rerender(component: JsReactComponent) {
     try {
       if (whyDidYouRender) console.log(whyDidYouRender);
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
+      // render
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
-      rootComponent.hooks = [];
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
-      jsreact$renderChildren(rootComponent, rootComponent.node as any, []);
-      for (let layoutEffectCallback of rootComponent.hooks) {
-        layoutEffectCallback();
-      }
+      jsreact$renderChildren(rootComponent, rootComponent.node, []);
+      // run layout effects
+      for (let layoutEffectCallback of rootComponent.hooks) layoutEffectCallback();
+      rootComponent.hooks = [];
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
-      console.log({error})
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
@@ -595,6 +645,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
     const rootComponent: JsReactComponent = {
       node: vnode,
       element: parent,
+      legacyComponent: undefined,
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
@@ -602,7 +653,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
       childIndex: 0,
       children: {},
       prevEventHandlers: {},
-      root: undefined as any,
+      root: undefined as unknown as JsReactComponent,
       flags: 0,
     };
     rootComponent.root = rootComponent;
@@ -666,15 +717,15 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
   // NOTE: `Object.is()` for correct NaN handling
   return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
 }
-/** NOTE: prefer `useRef()` for better performance */
 const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
-type UseEffectHook = Hook<{
+type UseEffect = Hook<{
   cleanup: (() => void) | null | undefined | void;
   prevDeps: any[] | null;
 }>
+/** NOTE: prefer `useRef()` for better performance */
 export function useEffect(effect: () => (() => void) | null | undefined | void, dependencies?: any[]): void {
   console.log("ayaya.useEffect", effect);
-  const hook = useHook<UseEffectHook>({
+  const hook = useHook<UseEffect>({
     $$typeof: USE_EFFECT_SYMBOL,
     cleanup: null,
     prevDeps: null,
@@ -686,6 +737,15 @@ export function useEffect(effect: () => (() => void) | null | undefined | void, 
       hook.cleanup = effect();
     }, 0);
   }
+}
+const USE_WILL_UNMOUNT_SYMBOL = Symbol.for("useWillUnmount()");
+type UseWillUnmount = { $$typeof: symbol; callback: (() => void) | undefined | null };
+export function useWillUnmount(callback: (() => void) | undefined | null) {
+  const hook = useHook<UseWillUnmount>({
+    $$typeof: USE_WILL_UNMOUNT_SYMBOL,
+    callback,
+  });
+  hook.callback = callback;
 }
 //const LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
 export function useLayoutEffect(callback: () => void, dependencies?: any[]) {

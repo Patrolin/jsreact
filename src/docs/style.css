@@ -10,6 +10,7 @@ html, body {
 #app {
 	display: flex;
 	flex-direction: column;
+	align-items: flex-start;
 }
 .jsreact-error {
 	padding: 0 16px;

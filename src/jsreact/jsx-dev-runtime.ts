@@ -1,4 +1,4 @@
-import type { VNode } from "./jsreact";
+import { REACT_ELEMENT_TYPE, type VNode } from "./jsreact";
 export {Fragment} from "./jsreact";
 
 export function jsxDEV(
@@ -9,5 +9,5 @@ export function jsxDEV(
   source: VNode["source"],
   _self: any,
 ): VNode {
-  return { type, key, props: {...props, children: props?.children ?? null}, source };
+  return { $$typeof: REACT_ELEMENT_TYPE, type, key, props: {...props, children: props?.children ?? null}, source };
 }
