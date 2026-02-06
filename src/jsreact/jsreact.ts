@@ -55,10 +55,11 @@ type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
 
 // legacy Component class - must be callable as both `new Component()` and `Component()`
 type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS> & {
-  readonly $$setState: (newState: S) => void;
-  readonly $$component: Readonly<JsReactComponent>;
+  $$setState: (newState: S) => void;
+  $$component: Readonly<JsReactComponent>;
 };
 export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
+  if (_context != null) throw new Error("Not implemented: Component(props, context)");
   this.props = props;
 }
 Object.defineProperty(Component, "context", {
@@ -102,11 +103,6 @@ export class Component2<P = {}, S = {}, _SS = any> {
   forceUpdate() {rerender(this.$$component)}
   render(): ReactNode {return null};
 }
-/*export function Component(props, context, updater): ReactNode {
-  if (context != null || updater != null) throw new Error("Not implemented: Component(...)");
-  console.log(props, context, updater);
-  return Fragment(props);
-}*/
 export const version = 19;
 // createElement()
 type TextProps = {value: Value};
@@ -128,7 +124,7 @@ export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
   const forwardRefComponent = render as ForwardRefComponent<P, R>;
-  forwardRefComponent.displayName = render["displayName"] || render.name || "forwardRefComponent";
+  forwardRefComponent.displayName = render.displayName || render.name;
   forwardRefComponent.$$typeof = FORWARD_REF_SYMBOL;
   return forwardRefComponent;
 }
@@ -141,17 +137,13 @@ function makeExoticComponent<P = {}>(
 ): NamedExoticComponent<P> {
   if (render == null) {
     render = (props) => props.children;
-    render.displayName = String($$typeof);
-  } else {
-    render.displayName = render.displayName || render.name || String($$typeof);
+    Object.defineProperty(render, 'name', { value: '', configurable: true });
   }
   render.$$typeof = $$typeof;
   return render as NamedExoticComponent<P>;
 }
 export function createContext<T>(defaultValue: T): Context<T> {
-  const context = makeExoticComponent(CONTEXT_PROVIDER_SYMBOL, (props) => {
-    return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props} as unknown as ValueOrVNode;
-  }) as Context<T>;
+  const context = makeExoticComponent(CONTEXT_PROVIDER_SYMBOL) as Context<T>;
   context._currentValue = defaultValue;
   context.Provider = context;
   context.Consumer = makeExoticComponent(CONTEXT_CONSUMER_SYMBOL, ({children}) => {
@@ -315,7 +307,8 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     } else {
       const displayName = (childType as NamedExoticComponent).displayName;
       const $$typeof = (childType as NamedExoticComponent).$$typeof;
-      keyRight = displayName || childType.name || String($$typeof);
+      keyRight = displayName || childType.name
+      if ($$typeof) keyRight = keyRight ? `${keyRight}_${String($$typeof)}` : String($$typeof);
     }
   } else {
     keyRight = typeof child + "$";
@@ -352,8 +345,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   $component = component;
   component.node = child;
   let leaf: ReactNodeSync = child;
-  let isContext = false;
   let desiredElementType = "";
+  let isContext = false;
+  let prevContextValue: any;
   if (!isVNode(leaf)) {
     // Value
     const hasText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
@@ -363,34 +357,35 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     const leafType = leaf.type;
     if (typeof leafType === "function") {
       // function
-      const $$typeof = leafType["$$typeof"];
+      const $$typeof = (leafType as NamedExoticComponent).$$typeof;
       switch ($$typeof) {
+      case CONTEXT_PROVIDER_SYMBOL:
+      case CONTEXT_CONSUMER_SYMBOL:
+      case FRAGMENT_SYMBOL:
       case undefined: {
+        isContext = $$typeof === CONTEXT_PROVIDER_SYMBOL;
+        if (isContext) {
+          prevContextValue = (leafType as Context<any>)._currentValue;
+          (leafType as Context<any>)._currentValue = (leaf as VNode).props.value;
+        }
         if (isComponentClass(leafType)) {
           if ("contextTypes" in leaf) throw "Not implemented: legacy Component.contextTypes";
-          const instance = new leafType(leaf.props, null);
+          const instance = new leafType(leaf.props, null) as ComponentClass<any, any>;
           const [state, setState] = useState(instance.state ?? {});
           instance.state = state; // NOTE: Component class state does not update while rendering!
-          instance["$$setState"] = setState;
-          instance["$$component"] = component;
+          instance.$$setState = setState;
+          instance.$$component = component;
           leaf = instance.render() as ReactNodeSync;
-          console.log("ayaya.Class", leaf)
         } else {
           leaf = (leafType as FunctionComponent)(leaf.props as JsxProps); // function component
         }
       } break;
       case FORWARD_REF_SYMBOL: {
         const {ref = null, ...rest} = leaf.props as DOMProps;
-        console.log("ayaya.forwardRef", rest, ref);
         leaf = (leafType as unknown as ForwardRefComponent)(rest, ref) as ValueOrVNode;
-      } break;
-      case FRAGMENT_SYMBOL: {} break;
-      case CONTEXT_PROVIDER_SYMBOL: {
-        isContext = true;
       } break;
       case PORTAL_SYMBOL: {
         const portal = leaf as Portal;
-        console.log("ayaya.leaf.portal", portal, leaf);
         leaf = portal.children as ReactNodeSync;
         component.element = portal.props as Element;
         childOrder = [];
@@ -444,17 +439,10 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     }
   }
   // render children
-  let prevContextValue;
-  let context: Context<any>;
-  if (isContext) {
-    context = ((leaf as VNode).type as Context<any>);
-    prevContextValue = context._currentValue;
-    context._currentValue = (leaf as VNode).props.value;
-  }
   const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
-  console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
+  console.log("ayaya.leaf", {key, component});
   if (children != null) jsreact$renderChildren(component, children, childOrder);
-  if (isContext) context!._currentValue = prevContextValue;
+  if (isContext) ((leaf as VNode).type as Context<any>)._currentValue = prevContextValue;
 }
 function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
   jsreact$renderJsxChildren(parent, children, childOrder);
@@ -481,15 +469,13 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   //  parentGcFlag,
   //  children: Object.values(parent.children).map(v =>  v.key)
   //})
-  //console.log("ayaya.gc.hit", parent);
+  console.log("ayaya.gc", parent.key, parent);
   for (let component of Object.values(parent.children)) {
     const $$typeof = (component.node as any)?.type?.$$typeof;
-    const isUnused = component.flags !== parentGcFlag;
-    if (isUnused) delete parent.children[component.key]; // delete old state
-    if ($$typeof) {
-      removeUnusedChildren(component, parentGcFlag); // recurse into Fragment or similar
-    } else if (isUnused) {
-      //console.log("ayaya.gc", {key: component.key, $$typeof, component, parent});
+    if ($$typeof) console.log("ayaya.gc.typeof", $$typeof, component);
+    if (component.flags !== parentGcFlag) {
+      //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
+      delete parent.children[component.key]; // delete old state
       const element = component.element;
       if (element != null) {
         // set ref = null
@@ -497,7 +483,10 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
         const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
         setRef(ref, null);
         // remove the element
-        element.remove();
+        if ($$typeof === PORTAL_SYMBOL) removeUnusedChildren(component, parentGcFlag);
+        else element.remove();
+      } else {
+        removeUnusedChildren(component, parentGcFlag);
       }
     }
   }

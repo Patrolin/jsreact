@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 
+const MyContext = React.createContext(0);
 /** Test showing/hiding a Fragment component */
 export const BooleanDemo: FC = () => {
   const [state, setState] = useState(0);
@@ -11,6 +12,9 @@ export const BooleanDemo: FC = () => {
         </>
       )}
       <button onClick={() => setState(state + 1)}>+1</button>
+      <MyContext value={state}>
+        <MyContext.Consumer>{(value) => value}</MyContext.Consumer>
+      </MyContext>
     </div>
   );
 };

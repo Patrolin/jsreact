@@ -1,22 +1,18 @@
-import React, { FC, useState } from "react";
+import React, { FC } from "react";
 import { render } from "react-dom";
 import "./style.css";
 import { PopperDemo } from "./demos/PopperDemo";
 import { PortalDemo } from "./demos/PortalDemo";
 import { BooleanDemo } from "./demos/BooleanDemo";
 import { ComponentClassDemo } from "./demos/ComponentClassDemo";
-import { Tooltip } from "@mui/material";
+import { TooltipDemo } from "./demos/TooltipDemo";
 
 const App: FC<{ foobar: string }> = () => {
   //return <BooleanDemo />;
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
   return <PopperDemo />;
-  /*return (
-    <Tooltip title="world">
-      <span>hello</span>
-    </Tooltip>
-  );*/
+  //return <TooltipDemo />;
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>
