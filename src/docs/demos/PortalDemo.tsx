@@ -1,12 +1,13 @@
 import { Portal } from "@mui/material";
 import React, { FC } from "react";
+//import Portal from "../mock/Portal";
 
 export const PortalDemo: FC = () => {
   const [show, setShow] = React.useState(false);
   const container = React.useRef(null);
   return (
     <main>
-      <button type="button" onClick={() => setShow(!show)}>
+      <button type="button" onClick={(event: React.MouseEvent) => setShow(!show)}>
         Click me
       </button>
       <div style={{ padding: 4, border: "1px solid black" }}>

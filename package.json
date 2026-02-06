@@ -16,6 +16,7 @@
     "dist"
   ],
   "dependencies": {
+    "@types/react": "^19.2.13",
     "csstype": "^3.2.3"
   },
   "devDependencies": {

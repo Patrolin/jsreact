@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: [
-      { find: "jsreact", replacement: path.resolve(__dirname, "src/jsreact") },
+      { find: "jsreact", replacement: path.resolve(__dirname, "src/jsreact/jsreact.ts") },
       { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
       { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/index-dom.ts") },
       { find: "react/jsx-runtime", replacement: path.resolve(__dirname, "src/jsreact/jsx-runtime.ts") },

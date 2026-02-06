@@ -1,94 +1,84 @@
-import * as CSS from "csstype";
 import { jsx } from "./jsx-runtime";
-export type CSSProperties = CSS.Properties<string | number>;
+import type React from "react";
 
 // env
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// events
-export type SyntheticEvent<T = Element, E = globalThis.Event> = Omit<E, "target" | "currentTarget"> & {
-  target: T;
-  currentTarget: T;
-};
-export type MouseEvent<T = Element> = SyntheticEvent<T, globalThis.MouseEvent>;
-export type FocusEvent<T = Element> = SyntheticEvent<T, globalThis.FocusEvent>;
-export type TouchEvent<T = Element> = SyntheticEvent<T, globalThis.TouchEvent>;
-export type EventHandler<T> = (event: Event) => void;
-
-// IntrinsicProps
-type JsxKey = Value;
-type JSXProps = {children?: ReactNode, key?: JsxKey};
-export type RefAttributes<R = Element> = {ref?: Ref<R>}
-export type ReactProps = JSXProps & RefAttributes<any>;
-type DOMProps = ReactProps & {
+// types
+export type MutableRef<T> = {current: T};
+export type Ref<T> = MutableRef<T> | ((value: T) => void) | null;
+export type Value = string | bigint | number | boolean | null | undefined | void;
+export type JsxKey = Value;
+export type JsxProps = {children?: ReactNode, key?: JsxKey};
+export type DOMProps<R = any> = JsxProps & {
+  ref?: Ref<R | null>;
   className?: string[] | string;
-  style?: CSSProperties & {[k in `--${string}`]: number | string};
+  style?: React.CSSProperties & {[k in `--${string}`]: number | string};
   htmlFor?: string;
   // TODO: more event types
   onClick?: (event: MouseEvent) => void;
   [k: string]: any;
 };
 
-// ReactNode
-export type PropsWithChildren<P = {}> = P extends {children: any} ? P & Omit<JSXProps, "children"> : P & JSXProps;
-export type FunctionComponent<P = {}> = (props: PropsWithChildren<P>) => ValueOrVNode;
-type ForwardFn<P = {}, R = Element> = (props: PropsWithChildren<P>, ref: Ref<R>) => ValueOrVNode;
+export type PropsWithChildren<P = {}> = (P extends {children: any} ? P & Omit<JsxProps, "children"> : P) & JsxProps;
+export type FunctionComponent<P = {}> = (props: PropsWithChildren<P>, context?: any) => ValueOrVNode;
 export type FC<P = {}> = FunctionComponent<P>;
-export type ForwardRefExoticComponent<P = {}> = (props: PropsWithChildren<P & RefAttributes<any>>) => ValueOrVNode;
+export type ForwardFn<P = {}, R = any> = React.ForwardRefRenderFunction<R, P>;
 
-export type ElementType = FunctionComponent<any> | string | FragmentElement | ForwardRefElement | ContextElement | PortalElement;
-export interface VNode {
-  type: ElementType;
-  key: JsxKey;
-  props: DOMProps;
+export type ForwardRefComponent<P = {}, R = any> = ForwardFn<P, R> & { $$typeof: symbol };
+export type FragmentElement = { $$typeof: symbol };
+export type Context<T> = React.Context<T> & {_currentValue: T};
+export type Portal = React.ReactPortal;
+export type ElementType = string | React.JSXElementConstructor<any>;
+type Without<T, U> = T extends U ? never : T;
+export type ReactNode = React.ReactNode;
+export type ReactNodeSync = Without<ReactNode, Promise<any>>;
+export type ValueOrVNode = Without<ReactNodeSync, Iterable<React.ReactNode>>;
+
+// private types
+type ExoticComponent<P = {}> = React.ExoticComponent<P>;
+type PortalVNode = Omit<React.ReactPortal, "key"> & { key?: React.ReactPortal["key"] };
+type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
+type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
+  key?: ReactElement["key"];
   source?: {
     fileName: string;
     lineNumber: number;
     columnNumber: number;
   } | null;
-}
-type Value =
-  | string
-  | bigint
-  | number
-  | boolean
-  | null
-  | undefined
-  | void
-export type ValueOrVNode =
-  | Value
-  | VNode
-export type ReactNode =
-  | ValueOrVNode
-  | ReactNode[]
+};
 
-// export types
-declare global {
-  namespace JSX {
-    type Element = ValueOrVNode;
-    interface IntrinsicElements {
-      // TODO: give types for input, label, img, link
-      [tagName: string]: DOMProps;
+// legacy Component class
+export class Component<P = {}, S = {}, _SS = any> {
+  props: Readonly<P>;
+  state: Readonly<S>;
+  static contextType?: Context<any>;
+  get context() {return useContext((this.constructor as any).contextType)}
+  private $$setState: (newState: S) => void;
+  private $$component: JsReactComponent;
+  constructor(props: P, _context: null) {this.props = props};
+  setState(state: Partial<S> | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null)) {
+    let diff: Partial<S>;
+    if (typeof state === "function") {
+      diff = state(this.state, this.props) ?? {};
+    } else {
+      diff = state;
     }
-    interface ElementChildrenAttribute {children: {}}
+    this.$$setState({...this.state, ...diff});
   }
+  forceUpdate() {rerender(this.$$component)}
+  render(): ReactNode {return null};
 }
-
-// React.Component
-export function Component(props, context, updater): ReactNode {
+/*export function Component(props, context, updater): ReactNode {
   if (context != null || updater != null) throw new Error("Not implemented: Component(...)");
   console.log(props, context, updater);
   return Fragment(props);
-}
+}*/
 export const version = 19;
 // createElement()
 type TextProps = {value: Value};
 const FRAGMENT_SYMBOL = Symbol.for("react.fragment")
-type FragmentElement = { $$typeof: symbol };
-export function Fragment(props: JSXProps): VNode {
-  // NOTE: key is handled automatically
-  return { type: { $$typeof: FRAGMENT_SYMBOL }, key: undefined, props };
-};
+export const Fragment = makeExoticComponent<PropsWithChildren<any>>(FRAGMENT_SYMBOL);
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
   //console.log("ayaya.createElement", type, props, children);
   const { key, ...rest } = props ?? {};
@@ -96,49 +86,41 @@ export function createElement(type: VNode["type"], props: VNode["props"] | null 
     children: children.length === 1 ? children[0] : children,
     ...rest, // NOTE: some people (MUI) pass children inside props...
   }
-  return jsx(type, jsxProps, key);
+  return jsx(type, jsxProps, key as VNode["key"]);
 }
 export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
   return component;
 }
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
-type ForwardRefElement<P = {}, R = Element> = { $$typeof: symbol; render: ForwardFn<P, R> };
-export function forwardRef<R = Element, P = {}>(render: ForwardFn<P, R>): FC<P> {
-  // TODO: just noop and always pass ref to reduce tree noise?
-  function forwardRefComponent(props) {
-    return {
-      type: { $$typeof: FORWARD_REF_SYMBOL, render },
-      key: undefined,
-      props,
-    };
-  }
-  forwardRefComponent.displayName = render["displayName"] || render.name || forwardRefComponent.name;
-  return forwardRefComponent
+export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
+  const render2 = render as ForwardRefComponent<P, R>;
+  render2.displayName = render["displayName"] || render.name;
+  render2.$$typeof = FORWARD_REF_SYMBOL;
+  return render2;
 }
 // createContext()
 const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
-type ContextElement = { $$typeof: symbol, context: Context<any> };
-type Context<T> = {
-  _currentValue: T;
-  Provider: FC<{value: T}>;
-  Consumer: FC<{children: (value: T) => ReactNode}>;
+const CONTEXT_CONSUMER_SYMBOL = Symbol.for("react.consumer");
+function makeExoticComponent<P = {}>(
+  $$typeof: symbol,
+  render: (props: PropsWithChildren<P>) => ReactNode = (props) => props.children,
+): ExoticComponent<P> {
+  (render as any).$$typeof = $$typeof;
+  return render as ExoticComponent<P>;
 }
 export function createContext<T>(defaultValue: T): Context<T> {
-  const context: Context<T> = {
-    _currentValue: defaultValue,
-    Provider: (props) => {
-      console.log("ayaya.Provider", props)
-      /* NOTE: key prop is handled automatically */
-      return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props};
-    },
-    Consumer: ({children}) => {
-      console.log("ayaya.Consumer", children)
-      if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
-      const value = useContext(context);
-      return {type: Fragment, key: undefined, props: {children: children(value)}};
-    },
-  }
+  const context = makeExoticComponent(CONTEXT_PROVIDER_SYMBOL, (props) => {
+    return {type: {$$typeof: CONTEXT_PROVIDER_SYMBOL, context}, key: undefined, props} as unknown as ValueOrVNode;
+  }) as Context<T>;
+  context._currentValue = defaultValue;
+  context.Provider = context;
+  context.Consumer = makeExoticComponent(CONTEXT_CONSUMER_SYMBOL, ({children}) => {
+    console.log("ayaya.Consumer", children)
+    if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
+    const value = useContext(context);
+    return {type: Fragment, key: undefined, props: {children: children(value)}} as unknown as ValueOrVNode;
+  });
   return context;
 }
 export function useContext<T>(context: Context<T>): T {
@@ -147,18 +129,21 @@ export function useContext<T>(context: Context<T>): T {
 }
 // createPortal()
 const PORTAL_SYMBOL = Symbol.for("react.portal");
-type PortalElement = {$$typeof: Symbol; to: Element};
-export function createPortal(children: ReactNode, node: Element, key?: JsxKey): VNode {
-  return {type: {$$typeof: PORTAL_SYMBOL, to: node}, key, props: {children}};
+export function createPortal(children: ReactNode, node: Element, key?: JsxKey): PortalVNode {
+  return {
+    type: makeExoticComponent(PORTAL_SYMBOL),
+    key: key as VNode["key"],
+    props: node,
+    children,
+  };
 }
-type Without<T, U> = T extends U ? never : T;
 export function isValidElement(value: any): value is Without<ElementType, Value> {
   console.log("ayaya.isValidElement", value)
   return typeof value === "object" && "type" in value && ("props" in value || "$$typeof" in value.type);
 }
-export function cloneElement(vnode: ReactNode, childProps: DOMProps): ValueOrVNode {
+export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps): ValueOrVNode {
   console.log("ayaya.cloneElement")
-  if (Array.isArray(vnode)) throw new Error("Not implemented: cloneElement(array)");
+  if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
   if (isVNode(vnode)) {return {...vnode, props: childProps}}
   return vnode;
 }
@@ -261,30 +246,40 @@ function applyJsxProps(component: JsReactComponent, props: DOMProps) {
 }
 
 // render
-function isVNode(leaf: ValueOrVNode): leaf is VNode {
+function isIterable(value: ReactNode): value is Iterable<ReactNode> {
+  return typeof value !== "string" && typeof value?.[Symbol.iterator] === "function";
+}
+function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
   return leaf !== null && typeof leaf === "object";
 }
-function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, childOrder: JsReactComponent[]) {
+function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => Component<any, any>) {
+  return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
+}
+function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[]) {
   // recurse
-  if (Array.isArray(child)) {
-    for (let c of child) jsreact$renderJsxChildren(parent, c, childOrder);
+  if (isIterable(child)) {
+    for (let c of child) jsreact$renderJsxChildren(parent, c as ReactNodeSync, childOrder);
     return;
   }
   // get component state
   let keyLeft: string;
+  let keyRight: Value;
   if (isVNode(child)) {
     const childType = child.type;
     if (typeof childType === "string") {
       keyLeft = childType;
-    } else if (typeof childType === "function") {
-      keyLeft = childType["displayName"] || childType.name;
     } else {
-      keyLeft = String(childType.$$typeof);
+      const $$typeof = (childType as ExoticComponent).$$typeof;
+      if ($$typeof) {
+        keyLeft = String($$typeof);
+      } else {
+        keyLeft = childType["displayName"] || childType.name;
+      }
     }
+    keyRight = child.key;
   } else {
     keyLeft = "_" + typeof child;
   }
-  let keyRight = (child as VNode | undefined)?.key;
   if (keyRight == null) {
     keyRight = parent.childIndex++;
   } else {
@@ -312,19 +307,20 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
   component.childIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
-  component.flags = parent.flags;
+  component.flags = parent.flags & FLAGS_GC; // NOTE: parent.flags can get set concurrently, so we need to filter them
   // run user code
   $component = component;
   component.node = child;
-  let leaf: ValueOrVNode = child;
-  let isContextElement = false;
-  let isPortalElement = false;
+  let leaf: ReactNodeSync = child;
+  let isContext = false;
+  let isPortal = false;
   let isElementNew = false;
   let elementType = "";
   if (!isVNode(leaf)) {
     // Value
-    let needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
-    if (component.element == null && needText) {
+    const needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
+    if (!needText) return; // NOTE: Value cannot have children
+    if (component.element == null) {
       isElementNew = true;
       elementType = "Text";
       component.element = new Text() as unknown as Element;
@@ -332,39 +328,53 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
     const textProps: TextProps = {value: leaf};
     applyJsxProps(component, textProps);
   } else {
-    if (typeof leaf.type === "function") {
-      // function component
-      leaf = leaf.type(leaf.props);
-    } else if (typeof leaf.type === "string") {
+    const leafType = leaf.type;
+    if (typeof leafType === "function") {
+      const $$typeof = leafType["$$typeof"];
+      switch ($$typeof) {
+      case undefined: {
+        if (isComponentClass(leafType)) {
+          if ("contextTypes" in leaf) throw "Not implemented: legacy Component.contextTypes";
+          const instance = new leafType(leaf.props, null);
+          const [state, setState] = useState(instance.state ?? {});
+          instance.state = state; // NOTE: Component class state does not update while rendering!
+          instance["$$setState"] = setState;
+          instance["$$component"] = component;
+          leaf = instance.render() as ReactNodeSync;
+          console.log("ayaya.Class", leaf)
+        } else {
+          leaf = (leafType as FunctionComponent)(leaf.props as JsxProps); // function component
+        }
+      } break;
+      case FORWARD_REF_SYMBOL: {
+        const {ref = null, ...rest} = leaf.props as DOMProps;
+        leaf = (leafType as unknown as ForwardRefComponent)(rest, ref) as ValueOrVNode;
+      } break;
+      case FRAGMENT_SYMBOL: {} break;
+      case CONTEXT_PROVIDER_SYMBOL: {
+        isContext = true;
+      } break;
+      case PORTAL_SYMBOL: {
+        const portal = leaf as Portal;
+        console.log("ayaya.leaf.portal", portal, leaf);
+        component.element = portal.props as Element;
+        isPortal = true;
+        isElementNew = isComponentNew;
+        leaf = portal.children as ReactNodeSync;
+      } break;
+      default:
+        throw String($$typeof);
+      }
+    } else if (typeof leafType === "string") {
       // HTML element
       if (component.element == null) {
         isElementNew = true;
-        elementType = leaf.type;
-        component.element = document.createElement(leaf.type);
+        elementType = leafType;
+        component.element = document.createElement(leafType);
       }
-      applyJsxProps(component, leaf.props);
-    } else if (leaf.type != null && typeof leaf.type === "object") {
-      // special elements
-      switch (leaf.type.$$typeof) {
-      case FRAGMENT_SYMBOL: {} break;
-      case FORWARD_REF_SYMBOL: {
-        const forwardRefVNode = leaf.type as ForwardRefElement;
-        const {ref, ...rest} = leaf.props;
-        //console.log("ayaya.leaf.beforeRef", child, rest, ref)
-        leaf = forwardRefVNode.render.call(forwardRefVNode, rest, ref);
-      } break;
-      case CONTEXT_PROVIDER_SYMBOL: {
-        isContextElement = true;
-      } break;
-      case PORTAL_SYMBOL: {
-        component.element = (leaf.type as PortalElement).to;
-        isPortalElement = true;
-        isElementNew = isComponentNew;
-      } break;
-      default: {
-        console.error(leaf.type);
-        throw new Error("Not implemented: leaf type");
-      }}
+      applyJsxProps(component, leaf.props as DOMProps);
+    } else {
+      throw leafType;
     }
   }
   // assert number of hooks is constant
@@ -376,14 +386,15 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
   if (element != null) {
     // assert don't need key prop
     if (elementType && (element?.tagName?.toLowerCase() ?? "Text") !== elementType) {
-      console.log("ayaya.assertKey", {element, isPortalElement});
-      let node = child;
+      console.log("ayaya.assertKey", {element, isPortalElement: isPortal});
+      let node: Partial<ValueOrVNode> = child;
       let source = "";
-      if (isVNode(node)) {
-        node = {...node};
-        source = node.source != null ? `${node.source?.fileName}:${node.source?.lineNumber}` : "";
-        delete node.key;
-        delete node.source;
+      if (isVNode(child)) {
+        const vnode = {...child} as VNode;
+        source = vnode.source != null ? `${vnode.source?.fileName}:${vnode.source?.lineNumber}` : "";
+        delete vnode.key;
+        delete vnode.source;
+        node = vnode;
       }
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       console.error(`${error}:`, {before: component.element, next: node});
@@ -391,31 +402,31 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNode, c
     }
     // set ref = element
     if (isElementNew) {
-      const ref = isVNode(child) ? child.props.ref : undefined;
+      const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
       if (isCallback(ref)) ref(element);
       else if (ref) ref.current = element;
     }
     // set childOrder
-    console.log("ayaya.render.hasElement", component, isPortalElement);
-    if (!isPortalElement) childOrder.push(component);
+    console.log("ayaya.render.hasElement", component, isPortal);
+    if (!isPortal) childOrder.push(component);
     childOrder = [];
   }
   // render children
   let prevContextValue;
   let context: Context<any>;
-  if (isContextElement) {
-    context = ((leaf as VNode).type as ContextElement).context;
+  if (isContext) {
+    context = ((leaf as VNode).type as Context<any>);
     prevContextValue = context._currentValue;
     context._currentValue = (leaf as VNode).props.value;
   }
-  const children: ReactNode = leaf === child ? (leaf as VNode)?.props?.children : leaf;
-  //console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
+  const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
+  console.log("ayaya.leaf", {...(isVNode(child) ? child : {props: {value: child}}), key}, {leaf, component, parent});
   if (children != null) jsreact$renderChildren(component, children, childOrder);
-  if (isContextElement) context!._currentValue = prevContextValue;
+  if (isContext) context!._currentValue = prevContextValue;
 }
-function jsreact$renderChildren(parent: JsReactComponent, children: ReactNode, childOrder: JsReactComponent[]) {
+function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
   jsreact$renderJsxChildren(parent, children, childOrder);
-  removeUnusedChildren(parent, parent.flags);
+  removeUnusedChildren(parent, parent.flags & FLAGS_GC);
   // reorder used children
   const parentElement = parent.element;
   //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
@@ -445,7 +456,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
       // set ref = null
       if (component.element != null) {
         const child = component.node;
-        const ref = isVNode(child) ? child.props.ref : undefined;
+        const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
         if (isCallback(ref)) ref(null);
         else if (ref) ref.current = null;
       }
@@ -459,7 +470,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
   }
 }
 // debug tools
-const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.parent.gc.popper.";
+const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.parent.gc.popper.component.";
 function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   if (Error.captureStackTrace) {
@@ -474,19 +485,45 @@ function whoami() {
     return lines.join("\n");
   }
 }
+function prettifyError(prefix: any, error: string|undefined|null) {
+  let lines = (error ?? "").split("\n");
+  const acc: string[] = [];
+  if (lines[0].includes("Error")) {
+    acc.push(lines[0]);
+    lines = lines.slice(1);
+  } else {
+    acc.push(String(prefix));
+  }
+  let haveEllipsis = false;
+  for (let line of lines) {
+    if (line === "") continue;
+    if (line.includes("jsreact$")) {
+      if (!haveEllipsis) {
+        acc.push("    ...");
+        haveEllipsis = true;
+      }
+    } else {
+      haveEllipsis = false;
+      acc.push(line.startsWith(" ") ? line : "    " + line);
+    };
+  }
+  return acc.join("\n");
+}
 let renderCount = 0;
 const MAX_RENDER_COUNT: number | null = null;
 // entry
 function rerender(component: JsReactComponent) {
+  let whyDidYouRender: string|undefined;
   if (ENABLE_WHY_DID_YOU_RENDER) {
     const prefix = typeof ENABLE_WHY_DID_YOU_RENDER === "string" ? ENABLE_WHY_DID_YOU_RENDER : "";
-    console.log(`${prefix}Render caused by:\n${whoami()}`);
+    whyDidYouRender = prettifyError(`${prefix}Render caused by:`, whoami());
   }
   let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
   if (infiniteLoop) infiniteLoop = whoami();
   const rootComponent = component.root;
   const jsreact$doTheRender = () => {
     try {
+      if (whyDidYouRender) console.log(whyDidYouRender);
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
       rootComponent.childIndex = 0;
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
@@ -496,30 +533,7 @@ function rerender(component: JsReactComponent) {
       console.log("error", {error})
       if (!IS_PRODUCTION) {
         let message = error;
-        if (message instanceof Error) {
-          let lines = (error.stack ?? "").split("\n");
-          const acc: string[] = [];
-          if (lines[0].includes("Error")) {
-            acc.push(lines[0]);
-            lines = lines.slice(1);
-          } else {
-            acc.push(String(error));
-          }
-          let haveEllipsis = false;
-          for (let line of lines) {
-            if (line === "") continue;
-            if (line.includes("jsreact$")) {
-              if (!haveEllipsis) {
-                acc.push("    at ...");
-                haveEllipsis = true;
-              }
-            } else {
-              haveEllipsis = false;
-              acc.push(line.startsWith(" ") ? line : "    " + line);
-            };
-          }
-          message = acc.join("\n");
-        }
+        if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
         document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">Uncaught ${message}</h3>`;
       }
       throw error;
@@ -567,13 +581,10 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   }
   return $component.hooks[index];
 }
-export type MutableRef<T> = {current: T};
-export type Ref<T> = MutableRef<T> | ((value: T) => void);
-export type ForwardedRef<T> = Ref<T> | undefined;
 function isCallback<T, C extends Function>(value: T | C): value is C {
   return typeof value === "function";
 }
-export function useImperativeHandle<T>(ref: Ref<T> | null | undefined, createHandle: () => T, dependencies?: any[]) {
+export function useImperativeHandle<T>(ref: Ref<T> | undefined, createHandle: () => T, dependencies?: any[]) {
   const hook = useHook({prevDeps: null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     if (ref == null) return;
@@ -599,11 +610,10 @@ export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newV
     if (isCallback(initialState)) hook.current = initialState();
     else hook.current = initialState as T;
     hook.setState = (newState: T | ((state: T) => T)) => {
-      const prevValue = hook.current;
-      if (isCallback(newState)) hook.current = newState(hook.current);
-      else hook.current = newState;
-      if (!Object.is(hook.current, prevValue)) {
-        console.log("ayaya.setState()", prevValue, hook.current)
+      if (isCallback(newState)) newState = newState(hook.current);
+      if (!Object.is(hook.current, newState)) {
+        hook.current = newState;
+        console.log("ayaya.$component", $component)
         rerender($component);
       }
     }
