@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 
+/** Test showing/hiding a Fragment component */
 export const BooleanDemo: FC = () => {
   const [state, setState] = useState(0);
   return (

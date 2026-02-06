@@ -5,14 +5,18 @@ import { PopperDemo } from "./demos/PopperDemo";
 import { PortalDemo } from "./demos/PortalDemo";
 import { BooleanDemo } from "./demos/BooleanDemo";
 import { ComponentClassDemo } from "./demos/ComponentClassDemo";
+import { Tooltip } from "@mui/material";
 
 const App: FC<{ foobar: string }> = () => {
-  //return <ATooltip title="hello">world</ATooltip>;
-
   //return <BooleanDemo />;
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
   return <PopperDemo />;
+  /*return (
+    <Tooltip title="world">
+      <span>hello</span>
+    </Tooltip>
+  );*/
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>

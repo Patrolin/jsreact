@@ -53,8 +53,36 @@ type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
   } | null;
 };
 
-// legacy Component class
-export class Component<P = {}, S = {}, _SS = any> {
+// legacy Component class - must be callable as both `new Component()` and `Component()`
+type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS> & {
+  readonly $$setState: (newState: S) => void;
+  readonly $$component: Readonly<JsReactComponent>;
+};
+export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
+  this.props = props;
+}
+Object.defineProperty(Component, "context", {
+  get() {return useContext((this.constructor as any).contextType)}
+});
+Component.prototype.setState = function<P = {}, S = {}, SS = any>(
+  this: ComponentClass<P, S, SS>,
+  update: Partial<S> | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null),
+  callback: any,
+) {
+  if (callback != null) throw new Error("Not implemented: Component.setState.callback");
+  let diff: Partial<S>;
+  if (typeof update === "function") {
+    diff = update(this.state, this.props) ?? {};
+  } else {
+    diff = update;
+  }
+  this.$$setState({...this.state, ...diff});
+}
+Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
+  rerender(this.$$component);
+}
+Component.prototype.render = function(): ReactNode {return null}
+export class Component2<P = {}, S = {}, _SS = any> {
   props: Readonly<P>;
   state: Readonly<S>;
   static contextType?: Context<any>;
@@ -263,7 +291,7 @@ function isIterable(value: ReactNode): value is Iterable<ReactNode> {
 function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
   return leaf !== null && typeof leaf === "object";
 }
-function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => Component<any, any>) {
+function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
@@ -353,6 +381,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       } break;
       case FORWARD_REF_SYMBOL: {
         const {ref = null, ...rest} = leaf.props as DOMProps;
+        console.log("ayaya.forwardRef", rest, ref);
         leaf = (leafType as unknown as ForwardRefComponent)(rest, ref) as ValueOrVNode;
       } break;
       case FRAGMENT_SYMBOL: {} break;
