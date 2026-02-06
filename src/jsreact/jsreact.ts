@@ -94,10 +94,10 @@ export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
-  const render2 = render as ForwardRefComponent<P, R>;
-  render2.displayName = render["displayName"] || render.name;
-  render2.$$typeof = FORWARD_REF_SYMBOL;
-  return render2;
+  const forwardRefComponent = render as ForwardRefComponent<P, R>;
+  forwardRefComponent.displayName = render["displayName"] || render.name;
+  forwardRefComponent.$$typeof = FORWARD_REF_SYMBOL;
+  return forwardRefComponent;
 }
 // createContext()
 const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
