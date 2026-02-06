@@ -36,7 +36,12 @@ export type ReactNodeSync = Without<ReactNode, Promise<any>>;
 export type ValueOrVNode = Without<ReactNodeSync, Iterable<React.ReactNode>>;
 
 // private types
-type ExoticComponent<P = {}> = React.ExoticComponent<P>;
+type NamedExoticComponent<P = {}> = React.NamedExoticComponent<P>;
+type UntypedNamedExoticComponent<P = {}> = {
+  (props: P): ReactNode;
+  $$typeof?: symbol;
+  displayName?: NamedExoticComponent["displayName"];
+}
 type PortalVNode = Omit<React.ReactPortal, "key"> & { key?: React.ReactPortal["key"] };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
 type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
@@ -78,9 +83,7 @@ export const version = 19;
 // createElement()
 type TextProps = {value: Value};
 const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
-export function Fragment(props: JsxProps) {
-  return props.children; // NOTE: key is handled automatically
-}
+export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
   //console.log("ayaya.createElement", type, props, children);
   const { key, ...rest } = props ?? {};
@@ -97,7 +100,7 @@ export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
   const forwardRefComponent = render as ForwardRefComponent<P, R>;
-  forwardRefComponent.displayName = render["displayName"] || render.name;
+  forwardRefComponent.displayName = render["displayName"] || render.name || "forwardRefComponent";
   forwardRefComponent.$$typeof = FORWARD_REF_SYMBOL;
   return forwardRefComponent;
 }
@@ -106,10 +109,16 @@ const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
 const CONTEXT_CONSUMER_SYMBOL = Symbol.for("react.consumer");
 function makeExoticComponent<P = {}>(
   $$typeof: symbol,
-  render: (props: PropsWithChildren<P>) => ReactNode = (props) => props.children,
-): ExoticComponent<P> {
-  (render as any).$$typeof = $$typeof;
-  return render as ExoticComponent<P>;
+  render?: UntypedNamedExoticComponent<PropsWithChildren<P>>,
+): NamedExoticComponent<P> {
+  if (render == null) {
+    render = (props) => props.children;
+    render.displayName = String($$typeof);
+  } else {
+    render.displayName = render.displayName || render.name || String($$typeof);
+  }
+  render.$$typeof = $$typeof;
+  return render as NamedExoticComponent<P>;
 }
 export function createContext<T>(defaultValue: T): Context<T> {
   const context = makeExoticComponent(CONTEXT_PROVIDER_SYMBOL, (props) => {
@@ -121,7 +130,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
     console.log("ayaya.Consumer", children)
     if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
     const value = useContext(context);
-    return Fragment({children: children(value)});
+    return children(value);
   });
   return context;
 }
@@ -268,28 +277,25 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     return;
   }
   // get component state
-  let keyLeft: string;
-  let keyRight: Value;
+  let keyLeft: Value;
+  let keyRight: string;
   if (isVNode(child)) {
+    keyLeft = child.key;
     const childType = child.type;
     if (typeof childType === "string") {
-      keyLeft = childType;
+      keyRight = childType;
     } else {
-      const $$typeof = (childType as ExoticComponent).$$typeof;
-      if ($$typeof) {
-        keyLeft = String($$typeof);
-      } else {
-        keyLeft = childType["displayName"] || childType.name;
-      }
+      const displayName = (childType as NamedExoticComponent).displayName;
+      const $$typeof = (childType as NamedExoticComponent).$$typeof;
+      keyRight = displayName || childType.name || String($$typeof);
     }
-    keyRight = child.key;
   } else {
-    keyLeft = "_" + typeof child;
+    keyRight = typeof child + "$";
   }
-  if (keyRight == null) {
-    keyRight = parent.childIndex++;
+  if (keyLeft == null) {
+    keyLeft = parent.childIndex++;
   } else {
-    keyRight = keyRight;
+    keyLeft = keyLeft;
   }
   const key = `${keyLeft}_${keyRight}`;
   let component = parent.children[key];
@@ -441,15 +447,20 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   }
 }
 function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
-  //console.log("ayaya.gc.parent", parent, Object.values(parent.children).map(v => {
-  //  const $$typeof = (v.node as any)?.type?.$$typeof;
-  //  return $$typeof;
-  //}))
+  //console.log("ayaya.gc.parent", {
+  //  parent: parent.key,
+  //  parentGcFlag,
+  //  children: Object.values(parent.children).map(v =>  v.key)
+  //})
+  //console.log("ayaya.gc.hit", parent);
   for (let component of Object.values(parent.children)) {
-    if (component.flags !== parentGcFlag) {
-      delete parent.children[component.key]; // delete old state
-      const $$typeof = (component.node as any)?.type?.$$typeof;
-      console.log("ayaya.gc", component, $$typeof);
+    const $$typeof = (component.node as any)?.type?.$$typeof;
+    const isUnused = component.flags !== parentGcFlag;
+    if (isUnused) delete parent.children[component.key]; // delete old state
+    if ($$typeof) {
+      removeUnusedChildren(component, parentGcFlag); // recurse into Fragment or similar
+    } else if (isUnused) {
+      //console.log("ayaya.gc", {key: component.key, $$typeof, component, parent});
       const element = component.element;
       if (element != null) {
         // set ref = null
@@ -457,9 +468,8 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
         const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
         setRef(ref, null);
         // remove the element
-        if ($$typeof !== PORTAL_SYMBOL) element.remove();
+        element.remove();
       }
-      removeUnusedChildren(component, parentGcFlag);
     }
   }
 }
@@ -549,7 +559,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
-      key: "",
+      key: "root",
       childIndex: 0,
       children: {},
       prevEventHandlers: {},
@@ -630,7 +640,7 @@ export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   const hook = useHook({prevDeps: null as any[] | null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    setTimeout(callback, 0); // TODO: run after inserted, so that the browser doesn't have to rerender twice in one frame
+    setTimeout(callback, 0); // TODO: run immediately after inserted, so that Popper doesn't jump!!
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {

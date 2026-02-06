@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import BasePopper2 from "../mock/Popper/BasePopper";
+import Popper from "../mock/Popper/Popper";
 
 export const PopperDemo: FC = () => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -16,9 +16,9 @@ export const PopperDemo: FC = () => {
       <button style={{ marginLeft: 60 }} aria-describedby={id} type="button" onClick={handleClick}>
         Toggle Popper
       </button>
-      <BasePopper2 id={id} open={open} anchorEl={anchorEl}>
+      <Popper id={id} open={open} anchorEl={anchorEl}>
         <aside style={{ background: "gray" }}>The content of the Popper.</aside>
-      </BasePopper2>
+      </Popper>
     </div>
   );
 };
