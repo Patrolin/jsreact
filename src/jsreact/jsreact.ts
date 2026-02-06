@@ -647,20 +647,20 @@ export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newV
   console.log("ayaya.useState", initialState);
   const prevHookCount = $component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
-  const hook = useHook({current: undefined as T, setState: (() => {}) as SetStateFunction});
+  const hook = useHook({state: undefined as T, setState: (() => {}) as SetStateFunction});
   if ($component.hookIndex > prevHookCount) {
-    if (isCallback(initialState)) hook.current = initialState();
-    else hook.current = initialState as T;
+    if (isCallback(initialState)) hook.state = initialState();
+    else hook.state = initialState as T;
     hook.setState = (newState: T | ((state: T) => T)) => {
-      if (isCallback(newState)) newState = newState(hook.current);
-      if (!Object.is(hook.current, newState)) {
-        hook.current = newState;
+      if (isCallback(newState)) newState = newState(hook.state);
+      if (!Object.is(hook.state, newState)) {
+        hook.state = newState;
         console.log("ayaya.$component", $component)
         rerender($component);
       }
     }
   }
-  return [hook.current, hook.setState];
+  return [hook.state, hook.setState];
 }
 function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | null | undefined): boolean {
   // NOTE: `Object.is()` for correct NaN handling
@@ -669,10 +669,10 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
 /** NOTE: prefer `useRef()` for better performance */
 const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
 type UseEffectHook = Hook<{
-  cleanup: (() => void)|null|undefined|void;
+  cleanup: (() => void) | null | undefined | void;
   prevDeps: any[] | null;
 }>
-export function useEffect(effect: () => (() => void)|null|undefined|void, dependencies?: any[]): void {
+export function useEffect(effect: () => (() => void) | null | undefined | void, dependencies?: any[]): void {
   console.log("ayaya.useEffect", effect);
   const hook = useHook<UseEffectHook>({
     $$typeof: USE_EFFECT_SYMBOL,
@@ -700,16 +700,18 @@ export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
   console.log("ayaya.useMemo", {callback, dependencies});
   const hook = useHook({ current: null as T, prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
-    console.log("ayaya.useMemo.2")
     hook.prevDeps = [...(dependencies ?? [])];
     hook.current = callback();
   }
   return hook.current;
 }
-export function useCallback<T extends Function>(callback: T, _dependencies?: any[]) {
-  console.log("ayaya.useCallback", {callback, _dependencies});
-  const hook = useHook({ current: (() => {}) as unknown as T })
-  hook.current = callback; // NOTE: you already created the lambda, might as well use it...
+export function useCallback<T extends Function>(callback: T, dependencies?: any[]) {
+  console.log("ayaya.useCallback", callback);
+  const hook = useHook({ current: callback, prevDeps: null as any[] | null });
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
+    hook.prevDeps = [...(dependencies ?? [])];
+    hook.current = callback;
+  }
   return hook.current;
 }
 export function useId(_idProp_legacy: any): string {
