@@ -446,7 +446,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
 }
 function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder);
-  removeUnusedChildren(parent, parent.flags & FLAGS_GC);
+  removeUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null) console.log("ayaya.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
@@ -463,7 +463,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
     }
   }
 }
-function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
+function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeElement: boolean) {
   //console.log("ayaya.gc.parent", {
   //  parent: parent.key,
   //  parentGcFlag,
@@ -475,6 +475,15 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
     if (component.flags !== parentGcFlag) {
       //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
       delete parent.children[component.key]; // delete old state
+      // run cleanup code
+      for (let hook of component.hooks) {
+        const hookType = hook.$$typeof;
+        if (hookType === USE_EFFECT_SYMBOL) {
+          (hook as UseEffectHook).cleanup?.();
+        } else if (hookType) {
+          throw hookType;
+        }
+      }
       const element = component.element;
       if (element != null) {
         // set ref = null
@@ -482,12 +491,15 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
         const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
         setRef(ref, null);
         // remove the element
-        const $$typeof = (component.node as any)?.type?.$$typeof;
-        if ($$typeof !== PORTAL_SYMBOL) element.remove();
-        else removeUnusedChildren(component, parentGcFlag);
-      } else {
-        removeUnusedChildren(component, parentGcFlag);
+        if (removeElement) {
+          const $$typeof = (component.node as any)?.type?.$$typeof;
+          if ($$typeof !== PORTAL_SYMBOL) {
+            element.remove();
+            removeElement = false;
+          }
+        }
       }
+      removeUnusedChildren(component, parentGcFlag, removeElement);
     }
   }
 }
@@ -556,7 +568,7 @@ function rerender(component: JsReactComponent) {
       }
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
-      console.log("error", {error})
+      console.log({error})
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
@@ -603,6 +615,7 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 /** the current component */
 let $component = {} as JsReactComponent;
 export const useRerender = () => () => rerender($component);
+type Hook<T> = T & {$$typeof: symbol};
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
@@ -630,7 +643,7 @@ export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   return hook;
 }
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
-  console.log("ayaya.useState", {initialState});
+  console.log("ayaya.useState", initialState);
   const prevHookCount = $component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
   const hook = useHook({current: undefined as T, setState: (() => {}) as SetStateFunction});
@@ -653,17 +666,29 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
   return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
 }
 /** NOTE: prefer `useRef()` for better performance */
-export function useEffect(callback: () => void, dependencies?: any[]): void {
-  console.log("ayaya.useEffect", {callback, dependencies});
-  const hook = useHook({ prevDeps: null as any[] | null });
+const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
+type UseEffectHook = Hook<{
+  cleanup: (() => void)|null|undefined|void;
+  prevDeps: any[] | null;
+}>
+export function useEffect(effect: () => (() => void)|null|undefined|void, dependencies?: any[]): void {
+  console.log("ayaya.useEffect", {effect, dependencies});
+  const hook = useHook<UseEffectHook>({
+    $$typeof: USE_EFFECT_SYMBOL,
+    cleanup: null,
+    prevDeps: null,
+  });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    setTimeout(callback, 0);
+    setTimeout(() => {
+      hook.cleanup?.();
+      hook.cleanup = effect();
+    }, 0);
   }
 }
 //const LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
 export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
-  console.log("ayaya.useLayoutEffect", {callback, dependencies});
+  //console.log("ayaya.useLayoutEffect", {callback, dependencies});
   const hook = useHook({ prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
