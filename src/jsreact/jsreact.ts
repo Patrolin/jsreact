@@ -32,7 +32,7 @@ export type Portal = React.ReactPortal;
 export type ElementType = string | React.JSXElementConstructor<any>;
 type Without<T, U> = T extends U ? never : T;
 export type ReactNode = React.ReactNode;
-export type ReactNodeSync = Without<ReactNode, Promise<any>>;
+export type ReactNodeSync = Without<ReactNode, Promise<any>>; // TODO: we could just support promises now
 export type ValueOrVNode = Without<ReactNodeSync, Iterable<React.ReactNode>>;
 
 // private types
@@ -530,8 +530,12 @@ function rerender(component: JsReactComponent) {
       if (whyDidYouRender) console.log(whyDidYouRender);
       if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
       rootComponent.childIndex = 0;
+      rootComponent.hooks = [];
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
       jsreact$renderChildren(rootComponent, rootComponent.node as any, []);
+      for (let layoutEffectCallback of rootComponent.hooks) {
+        layoutEffectCallback();
+      }
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
       console.log("error", {error})
@@ -543,12 +547,16 @@ function rerender(component: JsReactComponent) {
       throw error;
     }
   }
+  const jsreact$renderLater = () => {
+    if (rootComponent.flags & FLAGS_IS_RENDERING) requestAnimationFrame(jsreact$renderLater);
+    else jsreact$doTheRender();
+  }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
   if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
     jsreact$doTheRender();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
-    requestAnimationFrame(jsreact$doTheRender);
+    requestAnimationFrame(jsreact$renderLater);
   }
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
@@ -629,23 +637,24 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
 /** NOTE: prefer `useRef()` for better performance */
 export function useEffect(callback: () => void, dependencies?: any[]): void {
   console.log("ayaya.useEffect", {callback, dependencies});
-  const hook = useHook({prevDeps: null as any[] | null});
+  const hook = useHook({ prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     setTimeout(callback, 0);
   }
 }
+//const LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
 export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   console.log("ayaya.useLayoutEffect", {callback, dependencies});
-  const hook = useHook({prevDeps: null as any[] | null});
+  const hook = useHook({ prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    setTimeout(callback, 0); // TODO: run immediately after inserted, so that Popper doesn't jump!!
+    $component.root.hooks.push(callback);
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
   console.log("ayaya.useMemo", {callback, dependencies});
-  const hook = useHook({current: null as T, prevDeps: null as any[] | null});
+  const hook = useHook({ current: null as T, prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     console.log("ayaya.useMemo.2")
     hook.prevDeps = [...(dependencies ?? [])];
@@ -655,7 +664,7 @@ export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
 }
 export function useCallback<T extends Function>(callback: T, _dependencies?: any[]) {
   console.log("ayaya.useCallback", {callback, _dependencies});
-  const hook = useHook({current: (() => {}) as unknown as T})
+  const hook = useHook({ current: (() => {}) as unknown as T })
   hook.current = callback; // NOTE: you already created the lambda, might as well use it...
   return hook.current;
 }
