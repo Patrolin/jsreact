@@ -10,8 +10,8 @@ const App: FC<{ foobar: string }> = () => {
   //return <ATooltip title="hello">world</ATooltip>;
 
   //return <BooleanDemo />;
-  //return <PortalDemo />;
-  return <ComponentClassDemo />;
+  return <PortalDemo />;
+  //return <ComponentClassDemo />;
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>

@@ -77,8 +77,10 @@ export class Component<P = {}, S = {}, _SS = any> {
 export const version = 19;
 // createElement()
 type TextProps = {value: Value};
-const FRAGMENT_SYMBOL = Symbol.for("react.fragment")
-export const Fragment = makeExoticComponent<PropsWithChildren<any>>(FRAGMENT_SYMBOL);
+const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
+export function Fragment(props: JsxProps) {
+  return props.children; // NOTE: key is handled automatically
+}
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
   //console.log("ayaya.createElement", type, props, children);
   const { key, ...rest } = props ?? {};
@@ -119,7 +121,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
     console.log("ayaya.Consumer", children)
     if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
     const value = useContext(context);
-    return {type: Fragment, key: undefined, props: {children: children(value)}} as unknown as ValueOrVNode;
+    return Fragment({children: children(value)});
   });
   return context;
 }
@@ -205,7 +207,7 @@ function camelCaseToKebabCase(camelCase: string) {
   slices.push(camelCase.slice(i, camelCase.length));
   return slices.join("-").toLowerCase();
 }
-function applyJsxProps(component: JsReactComponent, props: DOMProps) {
+function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
   if (element instanceof Text) {
@@ -254,6 +256,10 @@ function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
 }
 function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
+}
+function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
+  if (isCallback(ref)) ref(value);
+  else if (ref) ref.current = value;
 }
 function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[]) {
   // recurse
@@ -307,29 +313,22 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   component.childIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
-  component.flags = parent.flags & FLAGS_GC; // NOTE: parent.flags can get set concurrently, so we need to filter them
+  component.flags = parent.flags & FLAGS_GC; // NOTE: parent.flags can get set concurrently, so we need to filter them here
   // run user code
   $component = component;
   component.node = child;
   let leaf: ReactNodeSync = child;
   let isContext = false;
-  let isPortal = false;
-  let isElementNew = false;
-  let elementType = "";
+  let desiredElementType = "";
   if (!isVNode(leaf)) {
     // Value
-    const needText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
-    if (!needText) return; // NOTE: Value cannot have children
-    if (component.element == null) {
-      isElementNew = true;
-      elementType = "Text";
-      component.element = new Text() as unknown as Element;
-    }
-    const textProps: TextProps = {value: leaf};
-    applyJsxProps(component, textProps);
+    const hasText = typeof leaf === "string" || typeof leaf === "number" || typeof leaf === "bigint";
+    if (!hasText) return;
+    desiredElementType = "Text";
   } else {
     const leafType = leaf.type;
     if (typeof leafType === "function") {
+      // function
       const $$typeof = leafType["$$typeof"];
       switch ($$typeof) {
       case undefined: {
@@ -357,22 +356,16 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       case PORTAL_SYMBOL: {
         const portal = leaf as Portal;
         console.log("ayaya.leaf.portal", portal, leaf);
-        component.element = portal.props as Element;
-        isPortal = true;
-        isElementNew = isComponentNew;
         leaf = portal.children as ReactNodeSync;
+        component.element = portal.props as Element;
+        childOrder = [];
       } break;
       default:
         throw String($$typeof);
       }
     } else if (typeof leafType === "string") {
       // HTML element
-      if (component.element == null) {
-        isElementNew = true;
-        elementType = leafType;
-        component.element = document.createElement(leafType);
-      }
-      applyJsxProps(component, leaf.props as DOMProps);
+      desiredElementType = leafType;
     } else {
       throw leafType;
     }
@@ -382,11 +375,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
     throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
   }
-  const element = component.element;
-  if (element != null) {
+  if (desiredElementType) {
+    const currentElement = component.element;
     // assert don't need key prop
-    if (elementType && (element?.tagName?.toLowerCase() ?? "Text") !== elementType) {
-      console.log("ayaya.assertKey", {element, isPortalElement: isPortal});
+    if (currentElement != null && currentElement?.tagName?.toLowerCase() !== desiredElementType) {
+      console.log("ayaya.assertKey", {desiredElementType});
       let node: Partial<ValueOrVNode> = child;
       let source = "";
       if (isVNode(child)) {
@@ -400,16 +393,20 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       console.error(`${error}:`, {before: component.element, next: node});
       if (source) throw error; // NOTE: only runs in dev build
     }
-    // set ref = element
-    if (isElementNew) {
-      const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
-      if (isCallback(ref)) ref(element);
-      else if (ref) ref.current = element;
+    // use the element
+    const isElementNew = currentElement == null;
+    if (desiredElementType === "Text") {
+      if (isElementNew) component.element = new Text() as unknown as Element;
+      (component.element as unknown as Text).textContent = String(leaf);
+      childOrder.push(component); // set childOrder
+    } else {
+      if (isElementNew) component.element = document.createElement(desiredElementType);
+      applyDOMProps(component, (leaf as VNode).props);
+      if (isElementNew) setRef((child as VNode).props.ref, component.element);
+      // set childOrder
+      childOrder.push(component);
+      childOrder = [];
     }
-    // set childOrder
-    console.log("ayaya.render.hasElement", component, isPortal);
-    if (!isPortal) childOrder.push(component);
-    childOrder = [];
   }
   // render children
   let prevContextValue;
@@ -429,7 +426,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   removeUnusedChildren(parent, parent.flags & FLAGS_GC);
   // reorder used children
   const parentElement = parent.element;
-  //if (parentElement != null) console.log("ayaya.render.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
+  if (parentElement != null) console.log("ayaya.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -444,26 +441,23 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   }
 }
 function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number) {
-  console.log("ayaya.gc.parent", parent, Object.values(parent.children).map(v => {
-    const $$typeof = (v.node as any)?.type?.$$typeof;
-    return $$typeof;
-  }))
+  //console.log("ayaya.gc.parent", parent, Object.values(parent.children).map(v => {
+  //  const $$typeof = (v.node as any)?.type?.$$typeof;
+  //  return $$typeof;
+  //}))
   for (let component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; // delete old state
       const $$typeof = (component.node as any)?.type?.$$typeof;
-      console.log("ayaya.gc", component, $$typeof);
-      // set ref = null
-      if (component.element != null) {
+      //console.log("ayaya.gc", component, $$typeof);
+      const element = component.element;
+      if (element != null) {
+        // set ref = null
         const child = component.node;
         const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
-        if (isCallback(ref)) ref(null);
-        else if (ref) ref.current = null;
-      }
-      // remove the element
-      if ($$typeof !== PORTAL_SYMBOL) {
-        const element = component.element;
-        if (element != null) element.remove();
+        setRef(ref, null);
+        // remove the element
+        if ($$typeof !== PORTAL_SYMBOL) element.remove();
       }
       removeUnusedChildren(component, parentGcFlag);
     }
@@ -587,9 +581,7 @@ function isCallback<T, C extends Function>(value: T | C): value is C {
 export function useImperativeHandle<T>(ref: Ref<T> | undefined, createHandle: () => T, dependencies?: any[]) {
   const hook = useHook({prevDeps: null});
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
-    if (ref == null) return;
-    if (isCallback(ref)) ref(createHandle());
-    else ref.current = createHandle();
+    setRef(ref, createHandle());
   }
 }
 export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
