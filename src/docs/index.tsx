@@ -12,13 +12,9 @@ const App: FC<{ foobar: string }> = () => {
   //return <BooleanDemo />;
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
-  //return <PopperDemo />;
-  return (
-    <Tooltip title="Add" arrow>
-      <span>Arrow</span>
-    </Tooltip>
-  );
-  //return <TooltipDemo />;
+  //return <PopperDemo />;;
+  return <TooltipDemo />;
+  // TODO: inputs
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>
   //    <MyContext.Consumer key={state}>{(v) => <span>{v}</span>}</MyContext.Consumer>

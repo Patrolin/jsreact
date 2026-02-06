@@ -84,7 +84,7 @@ type ComponentClassStatic<P = {}, S = {}, _SS = any> = {
   getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
 };
 type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS> & {
-  $$setState: (newState: S, callback: (() => void) | undefined) => void;
+  $$setState: React.Component<P, S, SS>["setState"];
   $$component: Readonly<JsReactComponent>;
 };
 type Writable<T> = { -readonly [K in keyof T]: T[K] };
@@ -95,17 +95,10 @@ export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
 }
 Component.prototype.setState = function<P = {}, S = {}, SS = any>(
   this: ComponentClass<P, S, SS>,
-  update: Partial<S> | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null),
+  newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
   callback: any,
 ) {
-  console.log("ayaya.component", update, callback)
-  let diff: Partial<S>;
-  if (typeof update === "function") {
-    diff = update(this.state, this.props) ?? {};
-  } else {
-    diff = update;
-  }
-  this.$$setState({...this.state, ...diff}, callback);
+  this.$$setState(newState, callback);
 }
 Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
   rerender(this.$$component);
@@ -189,6 +182,7 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
   if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
 }
+// TODO: set the key in Children.map like React (and unlike Preact)???
 export const Children = {
   map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
     console.log("ayaya.Children.map")
@@ -396,14 +390,14 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // confusion ending
           const prevProps = instance.props;
           const prevState = instance.state;
-          const [state, setState] = useState(instance.state ?? {});
+          const stateRef = useRef(instance.state ?? {});
           instance.props = leaf.props ?? {};
-          instance.state = state;
+          instance.state = stateRef.current;
           const {componentDidMount, componentDidUpdate, componentWillUnmount} = instance;
           // getDerivedStateFromProps()
           if (getDerivedStateFromProps != null) {
             const diff = getDerivedStateFromProps(instance.props, instance.state);
-            instance.state = {...instance.state, ...diff};
+            stateRef.current = instance.state = {...instance.state, ...diff};
           }
           // getSnapshotBeforeUpdate()
           const snapshot = undefined;
@@ -416,8 +410,15 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           useWillUnmount(componentWillUnmount);
           // render
           instance.$$setState = (newState, callback) => {
-            setState(newState); // NOTE: this won't rerender until we render everything
-            if (callback != null) component.root.hooks.push(callback);
+            const state = instance.state;
+            let diff = newState;
+            if (typeof diff === "function") diff = diff(state, instance.props);
+            const nextState = {...state, ...diff};
+            if (Object.keys(nextState).some(k => !Object.is(nextState[k], state[k]))) {
+              stateRef.current = nextState;
+              rerender(component) // NOTE: this won't rerender until we have rendered everything
+            }
+            if (callback != null) component.root.hooks.push(callback); // NOTE: this must run after everything else...
           };
           instance.$$component = component;
           leaf = instance.render() as ReactNodeSync;
