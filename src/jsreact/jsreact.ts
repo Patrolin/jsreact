@@ -638,7 +638,7 @@ function rerender(component: JsReactComponent) {
       // render
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
-      rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
+      rootComponent.flags = (rootComponent.flags ^ FLAGS_GC) | FLAGS_IS_RENDERING;
       jsreact$renderChildren(rootComponent, rootComponent.node, []);
       // run layout effects
       const rootHooks = rootComponent.hooks as RootHook[];
@@ -659,8 +659,10 @@ function rerender(component: JsReactComponent) {
     }
   }
   const jsreact$renderLater = () => {
-    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) jsreact$renderNow();
-    else requestAnimationFrame(jsreact$renderLater);
+    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
+      rootComponent.flags = rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME;
+      jsreact$renderNow();
+    } else requestAnimationFrame(jsreact$renderLater);
   }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
   if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_WILL_RENDER_NEXT_FRAME)) === 0) {
