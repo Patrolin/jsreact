@@ -3,7 +3,8 @@ import type React from "react";
 
 // env
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const INFINITE_LOOP_COUNT: number|null|undefined = null; // TODO: get these from env
+const WHY_DID_YOU_RENDER_PREFIX = ".render.leaf.gc.parent.popper.instance"; // TODO: get these from env
+const INFINITE_LOOP_COUNT: number|null|undefined = null;
 const INFINITE_LOOP_PAUSE = true;
 
 // types
@@ -173,7 +174,6 @@ export function isValidElement(value: any): value is ReactElement<any, any> {
   return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
 }
 export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null): ValueOrVNode {
-  console.log("ayaya.cloneElement")
   if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
   if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
@@ -248,6 +248,7 @@ const FLAGS_WILL_RENDER_NEXT_FRAME = 4;
 const FLAGS_IS_RENDERING = 2;
 const FLAGS_GC = 1;
 // apply intrinsic props
+const PASSIVE_EVENTS = new Set(["touchstart", "touchmove", "wheel"]);
 function camelCaseToKebabCase(camelCase: string) {
   // TODO: optimize this function
   const slices: string[] = [];
@@ -285,7 +286,7 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
       const eventHandler = props[key];
       prevEventHandlers[type] = eventHandler;
       if (prevEventHandler != null) element.removeEventListener(type, prevEventHandler);
-      if (eventHandler != null) element.addEventListener(type, eventHandler);
+      if (eventHandler != null) element.addEventListener(type, eventHandler, { passive: PASSIVE_EVENTS.has(type) });
     } else {
       if (value != null) element.setAttribute(key, String(value ?? ""));
       else element.removeAttribute(key);
@@ -489,24 +490,24 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       console.error(`${error}:`, {before: component.element, next: node});
       if (source) throw new Error(error); // NOTE: only runs in dev build
     }
-    // use the element
+    // create/use the element
     const isElementNew = currentElement == null;
     if (desiredElementType === "Text") {
-      if (isElementNew) component.element = new Text() as unknown as Element;
-      (component.element as unknown as Text).textContent = String(leaf);
-      childOrder.push(component); // set childOrder
+      const element = new Text();
+      if (isElementNew) component.element = element as unknown as Element;
+      element.textContent = String(leaf);
+      childOrder.push(component);
     } else {
       if (isElementNew) component.element = document.createElement(desiredElementType);
       applyDOMProps(component, (leaf as VNode).props);
       if (isElementNew) setRef((child as VNode).props.ref, component.element);
-      // set childOrder
       childOrder.push(component);
       childOrder = [];
     }
   }
   // render children
   const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
-  console.log("ayaya.leaf", {key, children});
+  //console.log("ayaya.leaf", {key, children});
   jsreact$renderChildren(component, children, childOrder);
   if (context != null) context._currentValue = prevContextValue;
 }
@@ -576,7 +577,6 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
   }
 }
 // debug tools
-const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.gc.parent.popper.instance";
 function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   if (Error.captureStackTrace) {
@@ -619,21 +619,19 @@ function prettifyError(prefix: any, error: string|undefined|null) {
 let renderCount = 0;
 export function getRenderCount(): number {return renderCount}
 function rerender(component: JsReactComponent) {
-  let whyDidYouRender: string|undefined;
-  if (ENABLE_WHY_DID_YOU_RENDER) {
-    const prefix = typeof ENABLE_WHY_DID_YOU_RENDER === "string" ? ENABLE_WHY_DID_YOU_RENDER : "";
-    whyDidYouRender = prettifyError(`${prefix}Render caused by:`, whoami());
-  }
+  let whyDidYouRender: string|null = null;
+  if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
   const rootComponent = component.root;
   const jsreact$renderNow = () => {
     try {
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
-      if (whyDidYouRender) console.log(whyDidYouRender);
+      if (whyDidYouRender != null) console.debug(whyDidYouRender);
       if (infiniteLoop) {
         if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; // NOTE: the browser breaks if you debugger too quickly...
         else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
       };
       // render
+      const renderStartMs = +new Date();
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
       rootComponent.flags = (rootComponent.flags ^ FLAGS_GC) | FLAGS_IS_RENDERING;
@@ -647,6 +645,8 @@ function rerender(component: JsReactComponent) {
       }
       rootComponent.hooks = [];
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
+      const renderMs = (new Date() as unknown as number) - renderStartMs;
+      if (renderMs > 33) console.warn(`Render took ${renderMs} ms.`);
     } catch (error) {
       if (!IS_PRODUCTION) {
         let message = error;
@@ -655,13 +655,13 @@ function rerender(component: JsReactComponent) {
       }
       throw error;
     }
-  }
+  };
   const jsreact$renderLater = () => {
     if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
       rootComponent.flags = rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME;
       jsreact$renderNow();
-    } else requestAnimationFrame(jsreact$renderLater);
-  }
+    } else requestAnimationFrame(jsreact$renderLater); // NOTE: if user code took too long, retry
+  };
   if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_WILL_RENDER_NEXT_FRAME)) === 0) {
     jsreact$renderNow();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
