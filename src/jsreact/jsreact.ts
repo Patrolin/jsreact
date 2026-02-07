@@ -149,7 +149,6 @@ export function createContext<T>(defaultValue: T): Context<T> {
   context._currentValue = defaultValue;
   context.Provider = context;
   context.Consumer = makeExoticComponent(CONTEXT_CONSUMER_SYMBOL, ({children}) => {
-    console.log("ayaya.Consumer", children)
     if (typeof children !== "function") throw new Error("Context.Consumer expects a function as its child");
     const value = useContext(context);
     return children(value);
@@ -157,7 +156,6 @@ export function createContext<T>(defaultValue: T): Context<T> {
   return context;
 }
 export function useContext<T>(context: Context<T>): T {
-  //console.log("ayaya.useContext", context);
   return context._currentValue;
 }
 // createPortal()
@@ -477,7 +475,6 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     const currentElement = component.element;
     // assert don't need key prop
     if (currentElement != null && (currentElement?.tagName?.toLowerCase() ?? "Text") !== desiredElementType) {
-      console.log("ayaya.assertKey", {desiredElementType});
       let node: Partial<ValueOrVNode> = child;
       let source = "";
       if (isVNode(child)) {
@@ -517,7 +514,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   removeUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
-  if (parentElement != null) console.log("ayaya.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
+  //if (parentElement != null) console.log("ayaya.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -664,7 +661,6 @@ function rerender(component: JsReactComponent) {
       jsreact$renderNow();
     } else requestAnimationFrame(jsreact$renderLater);
   }
-  //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
   if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_WILL_RENDER_NEXT_FRAME)) === 0) {
     jsreact$renderNow();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
