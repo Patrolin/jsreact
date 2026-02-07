@@ -2,9 +2,9 @@ import React, { FC, useEffect, useState } from "react";
 
 const SomeComponent = () => {
   useEffect(() => {
-    console.log("useEffect.setup()");
+    console.log("useEffect() setup");
     return () => {
-      console.log("useEffect.cleanup()");
+      console.log("useEffect() cleanup");
     };
   });
   return <span>hello</span>;

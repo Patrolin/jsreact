@@ -1,6 +1,6 @@
 import React, { FC } from "react";
-//import { Popper } from "@mui/material";
-import Popper from "../mock/Popper/Popper";
+import { Popper } from "@mui/material";
+//import Popper from "../mock/Popper/Popper";
 
 export const PopperDemo: FC = () => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -14,7 +14,7 @@ export const PopperDemo: FC = () => {
 
   return (
     <div>
-      <button style={{ marginLeft: 60 }} aria-describedby={id} type="button" onClick={handleClick}>
+      <button style={{ marginLeft: 100 }} aria-describedby={id} type="button" onClick={handleClick}>
         Toggle Popper
       </button>
       <Popper id={id} open={open} anchorEl={anchorEl}>

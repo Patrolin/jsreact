@@ -305,7 +305,7 @@ function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
   return leaf !== null && typeof leaf === "object";
 }
 function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
-  if (isCallback(ref)) ref(value);
+  if (typeof ref === "function") ref(value);
   else if (ref) ref.current = value;
 }
 function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[]) {
@@ -423,13 +423,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           }
           // getSnapshotBeforeUpdate()
           const snapshot = undefined;
-          // componentDidMount(), componentDidUpdate()
+          // componentDidMount(), componentDidUpdate(), TODO: better debug info
           useLayoutEffect(() => {
             if (instanceIsNew) componentDidMount?.call(instance);
             else componentDidUpdate?.call(instance, prevProps, prevState, snapshot);
           });
-          // componentWillUnmount()
-          useWillUnmount(componentWillUnmount);
           // render
           instance.setState = (newState, callback) => {
             const state = stateRef.current;
@@ -438,12 +436,14 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
             const nextState = {...state, ...diff};
             if (Object.keys(nextState).some(k => !Object.is(nextState[k], state[k]))) {
               stateRef.current = nextState;
-              rerender(component) // NOTE: this won't rerender until we have rendered everything
+              rerender(component);
             }
-            if (callback != null) pushRootHook(callback); // NOTE: this must run after everything else...
+            useLegacySetStateCallback(callback);
           };
           instance.forceUpdate = () => {rerender(component)};
           leaf = instance.render() as ReactNodeSync;
+          // componentWillUnmount()
+          useLegacyWillUnmount(componentWillUnmount);
         } else {
           leaf = (leafType as FunctionComponent)(leaf.props as JsxProps); // function component
         }
@@ -493,9 +493,15 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     // create/use the element
     const isElementNew = currentElement == null;
     if (desiredElementType === "Text") {
-      const element = new Text();
-      if (isElementNew) component.element = element as unknown as Element;
-      element.textContent = String(leaf);
+      let element: Text;
+      if (isElementNew) {
+        element = new Text();
+        component.element = element as unknown as Element;
+      } else {
+        element = component.element as unknown as Text;
+      }
+      const newText = String(leaf)
+      if (element.textContent !== newText) element.textContent = newText;
       childOrder.push(component);
     } else {
       if (isElementNew) component.element = document.createElement(desiredElementType);
@@ -547,14 +553,15 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
         const hookType = hook.$$typeof;
         switch (hookType) {
         case undefined: {} break;
-        case USE_EFFECT_SYMBOL: {
+        case USE_EFFECT_SYMBOL:
+        case USE_LAYOUT_EFFECT_SYMBOL: {
           (hook as UseEffect).cleanup?.();
         } break
-        case USE_WILL_UNMOUNT_SYMBOL: {
-          (hook as UseWillUnmount).callback?.call(component.legacyComponent);
+        case USE_LEGACY_WILL_UNMOUNT_SYMBOL: {
+          (hook as UseLegacyWillUnmount).callback?.call(component.legacyComponent);
         } break
         default: {
-          throw new Error(hookType);
+          throw new Error(String(hookType));
         }}
       }
       const element = component.element;
@@ -636,13 +643,27 @@ function rerender(component: JsReactComponent) {
       rootComponent.hookIndex = 0;
       rootComponent.flags = (rootComponent.flags ^ FLAGS_GC) | FLAGS_IS_RENDERING;
       jsreact$renderChildren(rootComponent, rootComponent.node, []);
-      // run layout effects
+      // run pending effects, NOTE: if more are added, we have to process them immediately!
       const rootHooks = rootComponent.hooks as RootHook[];
-      rootComponent.hooks = []; // NOTE: new rootHooks will be resolved next render
-      for (let rootHook of rootHooks) {
+      const initialRootHookCount = rootHooks.length;
+      for (let i = 0; i < rootHooks.length; i++) {
+        const rootHook = rootHooks[i];
         $component = rootHook.component;
-        rootHook.callback();
+        switch (rootHook.$$typeof) {
+        case USE_LEGACY_SET_STATE_CALLBACK: {
+          console.log("ayaya.roothook.USE_LEGACY_SET_STATE_CALLBACK", rootHook)
+          const hook = rootHook as unknown as UseLegacySetStackCallback;
+          hook.callback!();
+        } break;
+        case USE_LAYOUT_EFFECT_SYMBOL: {
+          const hook = rootHook as unknown as UseLayoutEffect;
+          hook.cleanup?.();
+          hook.cleanup = hook.setup();
+        } break;
+        default: throw rootHook;
+        }
       }
+      console.log("ayaya.rootHooks",  rootHooks.slice(0, initialRootHookCount), rootHooks.slice(initialRootHookCount));
       rootComponent.hooks = [];
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
       const renderMs = (new Date() as unknown as number) - renderStartMs;
@@ -696,11 +717,11 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 /** the current component */
 let $component = {} as JsReactComponent;
 export const useRerender = () => () => rerender($component);
-type Hook<T> = T & {$$typeof: symbol};
-type RootHook = {component: JsReactComponent; callback: () => void};
-function pushRootHook(callback: () => void) {
-  const component = $component;
-  (component.root.hooks as RootHook[]).push({ component, callback });
+type Hook<T = {}> = T & {$$typeof: symbol};
+type RootHook<T = {}> = Hook<T & {component: JsReactComponent}>;
+function pushRootHook<T>(hook: Hook<T>) {
+  (hook as RootHook<T>).component = $component;
+  $component.root.hooks.push(hook);
 }
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
@@ -710,37 +731,48 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   }
   return $component.hooks[index];
 }
-function isCallback<T, C extends Function>(value: T | C): value is C {
-  return typeof value === "function";
+const USE_LEGACY_SET_STATE_CALLBACK = Symbol.for("useLegacySetStateCallback()");
+type UseLegacySetStackCallback = Hook<{ callback: (() => void) | undefined | null }>;
+/** Run callback() after layout of this render, but before useLayoutEffect() */
+function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
+  if (callback != null) {
+    pushRootHook<UseLegacySetStackCallback>({ $$typeof: USE_LEGACY_SET_STATE_CALLBACK, callback });
+  }
+}
+const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
+type UseLegacyWillUnmount = Hook<{ callback: (() => void) | undefined | null }>;
+export function useLegacyWillUnmount(callback: (() => void) | undefined | null) {
+  const hook = useHook<UseLegacyWillUnmount>({ $$typeof: USE_LEGACY_WILL_UNMOUNT_SYMBOL, callback });
+  hook.callback = callback;
 }
 export function useImperativeHandle<T>(ref: Ref<T> | undefined, createHandle: () => T, dependencies?: any[]) {
-  const hook = useHook({prevDeps: null});
-  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
-    setRef(ref, createHandle());
-  }
+  const hook = useHook({ prevDeps: null });
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) setRef(ref, createHandle());
 }
 export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   const prevHookCount = $component.hooks.length;
-  const hook = useHook({current: undefined as T});
-  if ($component.hookIndex > prevHookCount) {
-    hook.current = initialValue as T;
-  }
+  const hook = useHook({ current: undefined as T });
+  if ($component.hookIndex > prevHookCount) hook.current = initialValue as T;
   return hook;
+}
+function isCallback<T, C extends Function>(value: T | C): value is C {
+  return typeof value === "function";
 }
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
   const prevHookCount = $component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
-  const hook = useHook({state: undefined as T, setState: (() => {}) as SetStateFunction});
+  const hook = useHook({ state: undefined as T, setState: (() => {}) as SetStateFunction });
   if ($component.hookIndex > prevHookCount) {
     if (isCallback(initialState)) hook.state = initialState();
     else hook.state = initialState as T;
-    hook.setState = (newState: T | ((state: T) => T)) => {
+    const setState = (newState: T | ((state: T) => T)) => {
       if (isCallback(newState)) newState = newState(hook.state);
       if (!Object.is(hook.state, newState)) {
         hook.state = newState;
         rerender($component);
       }
-    }
+    };
+    hook.setState = setState;
   }
   return [hook.state, hook.setState];
 }
@@ -749,41 +781,31 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
   return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
 }
 const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
+type UseEffectSetup = () => (() => void) | null | undefined | void;
 type UseEffect = Hook<{
   cleanup: (() => void) | null | undefined | void;
   prevDeps: any[] | null;
 }>
-/** NOTE: prefer `useRef()` for better performance */
-export function useEffect(effect: () => (() => void) | null | undefined | void, dependencies?: any[]): void {
-  const hook = useHook<UseEffect>({
-    $$typeof: USE_EFFECT_SYMBOL,
-    cleanup: null,
-    prevDeps: null,
-  });
+/** Run setup() at some point after this render has finished */
+export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
+  const hook = useHook<UseEffect>({ $$typeof: USE_EFFECT_SYMBOL, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    pushRootHook(() => {
+    setTimeout(() => {
       hook.cleanup?.();
-      hook.cleanup = effect();
-    });
+      hook.cleanup = setup();
+    }, 0);
   }
 }
-const USE_WILL_UNMOUNT_SYMBOL = Symbol.for("useWillUnmount()");
-type UseWillUnmount = { $$typeof: symbol; callback: (() => void) | undefined | null };
-export function useWillUnmount(callback: (() => void) | undefined | null) {
-  const hook = useHook<UseWillUnmount>({
-    $$typeof: USE_WILL_UNMOUNT_SYMBOL,
-    callback,
-  });
-  hook.callback = callback;
-}
-//const LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
-export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
-  //console.log("ayaya.useLayoutEffect", {callback, dependencies});
-  const hook = useHook({ prevDeps: null as any[] | null });
+const USE_LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
+type UseLayoutEffect = Hook<UseEffect & {setup: UseEffectSetup}>
+/** Run setup() after layout of this render */
+export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
+  const hook = useHook<UseLayoutEffect>({ $$typeof: USE_LAYOUT_EFFECT_SYMBOL, setup, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    pushRootHook(callback);
+    hook.setup = setup;
+    pushRootHook(hook);
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
