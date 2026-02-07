@@ -15,3 +15,8 @@ html, body {
 .jsreact-error {
 	padding: 0 16px;
 }
+
+/* Fix for MUI Tooltip rendering too early */
+.MuiPopper-root:not([data-popper-placement]) {
+	visibility: hidden;
+}

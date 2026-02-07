@@ -9,10 +9,11 @@ import { TooltipDemo } from "./demos/TooltipDemo";
 import { Button, Tooltip } from "@mui/material";
 
 const App: FC<{ foobar: string }> = () => {
+  // TODO: put these on separate pages
   //return <BooleanDemo />;
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
-  //return <PopperDemo />;;
+  //return <PopperDemo />;
   return <TooltipDemo />;
   // TODO: inputs
   //return (

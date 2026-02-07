@@ -3,6 +3,8 @@ import type React from "react";
 
 // env
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const INFINITE_LOOP_COUNT: number|null|undefined = null; // TODO: get these from env
+const INFINITE_LOOP_PAUSE = true;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -83,10 +85,7 @@ type ComponentClassStatic<P = {}, S = {}, _SS = any> = {
   readonly defaultProps?: Partial<P>;
   getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
 };
-type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS> & {
-  $$setState: React.Component<P, S, SS>["setState"];
-  $$component: Readonly<JsReactComponent>;
-};
+type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS>;
 type Writable<T> = { -readonly [K in keyof T]: T[K] };
 export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
   if (_context != null) throw new Error("Not implemented: Component(props, context)");
@@ -95,13 +94,13 @@ export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
 }
 Component.prototype.setState = function<P = {}, S = {}, SS = any>(
   this: ComponentClass<P, S, SS>,
-  newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
-  callback: any,
+  _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
+  _callback: any,
 ) {
-  this.$$setState(newState, callback);
+  throw new Error("BUG: Component.setState is not set");
 }
 Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
-  rerender(this.$$component);
+  throw new Error("BUG: Component.forceUpdate is not set");
 }
 Component.prototype.render = function(): ReactNode {return null}
 function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
@@ -182,19 +181,43 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
   if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
 }
-// TODO: set the key in Children.map like React (and unlike Preact)???
+function Children$toArray(children: ReactNode, out: ReactNode[]) {
+  if (isIterable(children)) {
+    for (let c of children) out.push(c);
+  } else {
+    out.push(children);
+  }
+}
 export const Children = {
-  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
-    console.log("ayaya.Children.map")
-    if (children == null) return null;
-    if (Array.isArray(children)) return children.map(fn, thisArg);
-    else return [fn.call(thisArg, children, 0)];
+  count(children) {
+    const acc: ReactNode[] = [];
+    Children$toArray(children, acc);
+    return acc.length;
   },
   forEach(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
-    if (children == null || typeof children === "boolean") return null;
-    if (Array.isArray(children)) children.forEach(fn, thisArg);
-    else fn.call(thisArg, children, 0);
-  }
+    let acc: ReactNode[] = [];
+    Children$toArray(children, acc);
+    acc.forEach((child, index) => fn.call(thisArg, child, index));
+  },
+  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
+    // map
+    let acc: ReactNode[] = [];
+    Children$toArray(children, acc);
+    const mapped = acc.map((child, index) => fn.call(thisArg, child, index));
+    // flatten
+    acc = []
+    Children$toArray(mapped, acc);
+    return acc;
+  },
+  only(children: ReactNode) {
+    if (!isValidElement(children)) throw new Error("Children.only expects a single element");
+    return children;
+  },
+  toArray(children: ReactNode) {
+    const acc: ReactNode[] = [];
+    Children$toArray(children, acc);
+    return acc.filter(v => v != null && typeof v !== "boolean"); // NOTE: this is very strange, but that's what the spec says...
+  },
 }
 
 // implementation
@@ -409,7 +432,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // componentWillUnmount()
           useWillUnmount(componentWillUnmount);
           // render
-          instance.$$setState = (newState, callback) => {
+          instance.setState = (newState, callback) => {
             const state = instance.state;
             let diff = newState;
             if (typeof diff === "function") diff = diff(state, instance.props);
@@ -418,9 +441,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
               stateRef.current = nextState;
               rerender(component) // NOTE: this won't rerender until we have rendered everything
             }
-            if (callback != null) component.root.hooks.push(callback); // NOTE: this must run after everything else...
+            if (callback != null) pushRootHook(callback); // NOTE: this must run after everything else...
           };
-          instance.$$component = component;
+          instance.forceUpdate = () => {rerender(component)};
           leaf = instance.render() as ReactNodeSync;
         } else {
           leaf = (leafType as FunctionComponent)(leaf.props as JsxProps); // function component
@@ -595,29 +618,36 @@ function prettifyError(prefix: any, error: string|undefined|null) {
   }
   return acc.join("\n");
 }
-let renderCount = 0;
-const MAX_RENDER_COUNT: number | null = null;
 // entry
+let renderCount = 0;
+export function getRenderCount(): number {return renderCount}
 function rerender(component: JsReactComponent) {
   let whyDidYouRender: string|undefined;
   if (ENABLE_WHY_DID_YOU_RENDER) {
     const prefix = typeof ENABLE_WHY_DID_YOU_RENDER === "string" ? ENABLE_WHY_DID_YOU_RENDER : "";
     whyDidYouRender = prettifyError(`${prefix}Render caused by:`, whoami());
   }
-  let infiniteLoop: boolean | string = MAX_RENDER_COUNT != null && renderCount++ > MAX_RENDER_COUNT;
-  if (infiniteLoop) infiniteLoop = whoami();
   const rootComponent = component.root;
-  const jsreact$doTheRender = () => {
+  const jsreact$renderNow = () => {
     try {
+      let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
       if (whyDidYouRender) console.log(whyDidYouRender);
-      if (infiniteLoop) throw `Infinite loop (${MAX_RENDER_COUNT}):\n${infiniteLoop}`;
+      if (infiniteLoop) {
+        if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; // NOTE: the browser breaks if you debugger too quickly...
+        else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
+      };
       // render
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
       rootComponent.flags = FLAGS_IS_RENDERING | (1 - (rootComponent.flags & FLAGS_GC));
       jsreact$renderChildren(rootComponent, rootComponent.node, []);
       // run layout effects
-      for (let layoutEffectCallback of rootComponent.hooks) layoutEffectCallback();
+      const rootHooks = rootComponent.hooks as RootHook[];
+      rootComponent.hooks = []; // NOTE: new rootHooks will be resolved next render
+      for (let rootHook of rootHooks) {
+        $component = rootHook.component;
+        rootHook.callback();
+      }
       rootComponent.hooks = [];
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
     } catch (error) {
@@ -630,12 +660,12 @@ function rerender(component: JsReactComponent) {
     }
   }
   const jsreact$renderLater = () => {
-    if (rootComponent.flags & FLAGS_IS_RENDERING) requestAnimationFrame(jsreact$renderLater);
-    else jsreact$doTheRender();
+    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) jsreact$renderNow();
+    else requestAnimationFrame(jsreact$renderLater);
   }
   //console.log(".render", rootComponent.flags.toString(2).padStart(3, "0"));
-  if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
-    jsreact$doTheRender();
+  if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_WILL_RENDER_NEXT_FRAME)) === 0) {
+    jsreact$renderNow();
   } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
     requestAnimationFrame(jsreact$renderLater);
@@ -669,6 +699,11 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 let $component = {} as JsReactComponent;
 export const useRerender = () => () => rerender($component);
 type Hook<T> = T & {$$typeof: symbol};
+type RootHook = {component: JsReactComponent; callback: () => void};
+function pushRootHook(callback: () => void) {
+  const component = $component;
+  (component.root.hooks as RootHook[]).push({ component, callback });
+}
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
@@ -733,10 +768,10 @@ export function useEffect(effect: () => (() => void) | null | undefined | void, 
   });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    setTimeout(() => {
+    pushRootHook(() => {
       hook.cleanup?.();
       hook.cleanup = effect();
-    }, 0);
+    });
   }
 }
 const USE_WILL_UNMOUNT_SYMBOL = Symbol.for("useWillUnmount()");
@@ -754,7 +789,7 @@ export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   const hook = useHook({ prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
-    $component.root.hooks.push(callback);
+    pushRootHook(callback);
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
