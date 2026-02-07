@@ -14,7 +14,16 @@ const App: FC<{ foobar: string }> = () => {
   //return <ComponentClassDemo />;
   //return <PortalDemo />;
   //return <PopperDemo />;
-  return <TooltipDemo />;
+  //return <TooltipDemo />;
+  return (
+    <Button
+      onClick={() => {
+        console.log("ayaya.onClick");
+      }}
+    >
+      wow
+    </Button>
+  );
   // TODO: inputs
   //return (
   //  /*<MyContext.Provider value={String(`--${state}`)}>

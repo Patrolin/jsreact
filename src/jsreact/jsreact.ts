@@ -394,9 +394,10 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           }
           const {contextType, defaultProps, getDerivedStateFromProps} = leafType as unknown as ComponentClassStatic;
           let instance = component.legacyComponent as Writable<ComponentClass>;
+          const instanceProps = {...defaultProps, ...leaf.props as object};
           const instanceIsNew = instance == null;
           if (instanceIsNew) {
-            instance = new leafType({...defaultProps, ...leaf.props as object}, null) as Writable<ComponentClass>;
+            instance = new leafType(instanceProps, null) as Writable<ComponentClass>;
             component.legacyComponent = instance as ComponentClass;
           }
           instance.context = contextType != null ? useContext(contextType) : undefined;
@@ -411,7 +412,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           const prevProps = instance.props;
           const prevState = instance.state;
           const stateRef = useRef(prevState ?? {});
-          instance.props = leaf.props ?? {};
+          instance.props = instanceProps;
           instance.state = stateRef.current;
           const {componentDidMount, componentDidUpdate, componentWillUnmount} = instance;
           // getDerivedStateFromProps()
@@ -575,7 +576,7 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
   }
 }
 // debug tools
-const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.gc.parent.popper.component.";
+const ENABLE_WHY_DID_YOU_RENDER = ".render.leaf.gc.parent.popper.instance";
 function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   if (Error.captureStackTrace) {
@@ -724,11 +725,9 @@ export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   if ($component.hookIndex > prevHookCount) {
     hook.current = initialValue as T;
   }
-  console.log("ayaya.useRef", initialValue);
   return hook;
 }
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
-  console.log("ayaya.useState", initialState);
   const prevHookCount = $component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
   const hook = useHook({state: undefined as T, setState: (() => {}) as SetStateFunction});
@@ -739,7 +738,6 @@ export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newV
       if (isCallback(newState)) newState = newState(hook.state);
       if (!Object.is(hook.state, newState)) {
         hook.state = newState;
-        console.log("ayaya.$component", $component)
         rerender($component);
       }
     }
@@ -757,7 +755,6 @@ type UseEffect = Hook<{
 }>
 /** NOTE: prefer `useRef()` for better performance */
 export function useEffect(effect: () => (() => void) | null | undefined | void, dependencies?: any[]): void {
-  console.log("ayaya.useEffect", effect);
   const hook = useHook<UseEffect>({
     $$typeof: USE_EFFECT_SYMBOL,
     cleanup: null,
@@ -790,7 +787,6 @@ export function useLayoutEffect(callback: () => void, dependencies?: any[]) {
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
-  console.log("ayaya.useMemo", {callback, dependencies});
   const hook = useHook({ current: null as T, prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
@@ -799,7 +795,6 @@ export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
   return hook.current;
 }
 export function useCallback<T extends Function>(callback: T, dependencies?: any[]) {
-  console.log("ayaya.useCallback", callback);
   const hook = useHook({ current: callback, prevDeps: null as any[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
