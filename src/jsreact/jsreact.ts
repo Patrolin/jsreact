@@ -112,7 +112,6 @@ export const version = 19;
 const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
 export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
-  //console.log("ayaya.createElement", type, props, children);
   const { key, ...rest } = props ?? {};
   const jsxProps = {
     children: children.length === 1 ? children[0] : children,
@@ -224,10 +223,10 @@ type JsReactComponent = {
   /** HTML element derived from user input */
   element: Element | undefined;
   /** implementation detail */
-  legacyComponent: ComponentClass<any, any> | undefined;
+  legacyComponent: ComponentClass<any, any> | RootHooks | undefined;
   /** implementation detail */
   prevHookIndex: number;
-  /** implementation detail */
+  /** implementation detail, also used by `useId()` */
   hookIndex: number;
   /** hook state */
   hooks: any[];
@@ -389,7 +388,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // class props
           for (let key of Object.keys(leafType)) {
             if (LEGACY_COMPONENT_STATIC_SUPPORTED[key] === false) {
-              console.log("Component keys:", Object.keys(leafType).filter(v => v in LEGACY_COMPONENT_STATIC_SUPPORTED))
+              console.error("Component has:", Object.keys(leafType).filter(v => v in LEGACY_COMPONENT_STATIC_SUPPORTED))
               throw `Not implemented: Component.${key}`;
             }
           }
@@ -405,7 +404,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // instance props
           for (let key of Object.keys(leafType.prototype)) {
             if (LEGACY_COMPONENT_SUPPORTED[key] === false) {
-              console.log("Component keys:", Object.keys(leafType.prototype).filter(v => v in LEGACY_COMPONENT_SUPPORTED))
+              console.error("Component has:", Object.keys(leafType.prototype).filter(v => v in LEGACY_COMPONENT_SUPPORTED))
               throw `Not implemented: Component.${key}`;
             }
           }
@@ -424,7 +423,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // getSnapshotBeforeUpdate()
           const snapshot = undefined;
           // componentDidMount(), componentDidUpdate(), TODO: better debug info
-          useLayoutEffect(() => {
+          useLegacyComponentUpdate(() => {
             if (instanceIsNew) componentDidMount?.call(instance);
             else componentDidUpdate?.call(instance, prevProps, prevState, snapshot);
           });
@@ -522,7 +521,6 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   removeUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
-  //if (parentElement != null) console.log("ayaya.parentElement", {a: parent.element, children: childOrder.map(v => v.element)})
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
     for (let c of childOrder) {
@@ -643,28 +641,20 @@ function rerender(component: JsReactComponent) {
       rootComponent.hookIndex = 0;
       rootComponent.flags = (rootComponent.flags ^ FLAGS_GC) | FLAGS_IS_RENDERING;
       jsreact$renderChildren(rootComponent, rootComponent.node, []);
-      // run pending effects, NOTE: if more are added, we have to process them immediately!
-      const rootHooks = rootComponent.hooks as RootHook[];
-      const initialRootHookCount = rootHooks.length;
-      for (let i = 0; i < rootHooks.length; i++) {
-        const rootHook = rootHooks[i];
-        $component = rootHook.component;
-        switch (rootHook.$$typeof) {
-        case USE_LEGACY_SET_STATE_CALLBACK: {
-          console.log("ayaya.roothook.USE_LEGACY_SET_STATE_CALLBACK", rootHook)
-          const hook = rootHook as unknown as UseLegacySetStackCallback;
-          hook.callback!();
-        } break;
-        case USE_LAYOUT_EFFECT_SYMBOL: {
-          const hook = rootHook as unknown as UseLayoutEffect;
+      // run pending effects
+      const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
+      (rootComponent.legacyComponent as RootHooks) = {
+        legacyComponentUpdates: [],
+        legacySetStateCallbacks: [],
+        useLayoutEffects: [],
+      }
+      console.log({legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects});
+      for (let hook of legacyComponentUpdates) hook.callback();
+      for (let hook of legacySetStateCallbacks) hook.callback();
+      for (let hook of useLayoutEffects) {
           hook.cleanup?.();
           hook.cleanup = hook.setup();
-        } break;
-        default: throw rootHook;
-        }
-      }
-      console.log("ayaya.rootHooks",  rootHooks.slice(0, initialRootHookCount), rootHooks.slice(initialRootHookCount));
-      rootComponent.hooks = [];
+      };
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
       const renderMs = (new Date() as unknown as number) - renderStartMs;
       if (renderMs > 33) console.warn(`Render took ${renderMs} ms.`);
@@ -692,10 +682,15 @@ function rerender(component: JsReactComponent) {
 }
 export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
   const onLoad = () => {
+    const rootHooks: RootHooks = {
+      legacyComponentUpdates: [],
+      legacySetStateCallbacks: [],
+      useLayoutEffects: [],
+    };
     const rootComponent: JsReactComponent = {
       node: vnode,
       element: parent,
-      legacyComponent: undefined,
+      legacyComponent: rootHooks,
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
@@ -716,13 +711,26 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
 // hooks
 /** the current component */
 let $component = {} as JsReactComponent;
-export const useRerender = () => () => rerender($component);
-type Hook<T = {}> = T & {$$typeof: symbol};
-type RootHook<T = {}> = Hook<T & {component: JsReactComponent}>;
-function pushRootHook<T>(hook: Hook<T>) {
-  (hook as RootHook<T>).component = $component;
-  $component.root.hooks.push(hook);
+/** NOTE: RootHooks must be run in the order defined here */
+type RootHooks = {
+  legacyComponentUpdates: UseLegacyComponentUpdate[];
+  legacySetStateCallbacks: UseLegacySetStateCallback[];
+  useLayoutEffects: UseLayoutEffect[];
 }
+type UseLegacyComponentUpdate = { callback: () => void };
+function useLegacyComponentUpdate(callback: () => void) {
+  const rootHooks = $component.root.legacyComponent as RootHooks;
+  rootHooks.legacyComponentUpdates.push({ callback });
+}
+type UseLegacySetStateCallback = { callback: () => void };
+function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
+  if (callback != null) {
+    const rootHooks = $component.root.legacyComponent as RootHooks;
+    rootHooks.legacySetStateCallbacks.push({ callback });
+  }
+}
+type Hook<T = {}> = T & {$$typeof: symbol};
+export const useRerender = () => () => rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
@@ -730,14 +738,6 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
     else throw new RangeError(`Components must have a constant number of hooks, got: ${$component.hookIndex}, expected: ${$component.prevHookIndex}`);
   }
   return $component.hooks[index];
-}
-const USE_LEGACY_SET_STATE_CALLBACK = Symbol.for("useLegacySetStateCallback()");
-type UseLegacySetStackCallback = Hook<{ callback: (() => void) | undefined | null }>;
-/** Run callback() after layout of this render, but before useLayoutEffect() */
-function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
-  if (callback != null) {
-    pushRootHook<UseLegacySetStackCallback>({ $$typeof: USE_LEGACY_SET_STATE_CALLBACK, callback });
-  }
 }
 const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
 type UseLegacyWillUnmount = Hook<{ callback: (() => void) | undefined | null }>;
@@ -805,7 +805,8 @@ export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     hook.setup = setup;
-    pushRootHook(hook);
+    const rootHooks = $component.root.legacyComponent as RootHooks;
+    rootHooks.useLayoutEffects.push(hook);
   }
 }
 export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
