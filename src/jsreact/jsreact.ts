@@ -108,7 +108,6 @@ function isComponentClass(type: ReactElement["type"]): type is (new(props: any, 
 }
 export const version = 19;
 // createElement()
-type TextProps = {value: Value};
 const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
 export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
