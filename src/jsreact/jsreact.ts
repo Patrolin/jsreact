@@ -412,14 +412,14 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // confusion ending
           const prevProps = instance.props;
           const prevState = instance.state;
-          const stateRef = useRef(instance.state ?? {});
+          const stateRef = useRef(prevState ?? {});
           instance.props = leaf.props ?? {};
           instance.state = stateRef.current;
           const {componentDidMount, componentDidUpdate, componentWillUnmount} = instance;
           // getDerivedStateFromProps()
           if (getDerivedStateFromProps != null) {
-            const diff = getDerivedStateFromProps(instance.props, instance.state);
-            stateRef.current = instance.state = {...instance.state, ...diff};
+            const diff = getDerivedStateFromProps(instance.props, stateRef.current);
+            instance.state = stateRef.current = {...stateRef.current, ...diff};
           }
           // getSnapshotBeforeUpdate()
           const snapshot = undefined;
@@ -432,7 +432,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           useWillUnmount(componentWillUnmount);
           // render
           instance.setState = (newState, callback) => {
-            const state = instance.state;
+            const state = stateRef.current;
             let diff = newState;
             if (typeof diff === "function") diff = diff(state, instance.props);
             const nextState = {...state, ...diff};
