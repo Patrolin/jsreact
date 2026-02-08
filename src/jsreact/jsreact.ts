@@ -680,8 +680,8 @@ function rerender(component: JsReactComponent) {
     requestAnimationFrame(jsreact$renderLater);
   }
 }
-export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
-  const onLoad = () => {
+export function createRoot(parent: HTMLElement) {
+  const render = (vnode: ValueOrVNode) => {
     const rootHooks: RootHooks = {
       legacyComponentUpdates: [],
       legacySetStateCallbacks: [],
@@ -705,7 +705,11 @@ export function renderRoot(vnode: ValueOrVNode, parent: HTMLElement) {
     console.log("ayaya.root", rootComponent);
     rerender(rootComponent);
   }
-  window.addEventListener("DOMContentLoaded", onLoad);
+  return {
+    render(vnode: ValueOrVNode) {
+      window.addEventListener("DOMContentLoaded", () => render(vnode));
+    },
+  }
 }
 
 // hooks

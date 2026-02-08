@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { render } from "react-dom";
+import { createRoot } from "react-dom/client";
 import "./style.css";
 import { routes } from "./routes";
 
@@ -24,4 +24,5 @@ const App: FC<{ foobar: string }> = () => {
     }
   }
 };
-render(<App foobar="" />, document.querySelector("#app")!);
+const root = createRoot(document.querySelector("#app")!);
+root.render(<App foobar="" />);

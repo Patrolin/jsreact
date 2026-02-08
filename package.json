@@ -8,7 +8,9 @@
   "type": "module",
   "scripts": {
     "start": "vite",
-    "debug": "vite build",
+    "start-preact": "vite --mode preact",
+    "start-react": "vite --mode react",
+    "debug-build": "vite build",
     "build-windows": "powershell rm dist/*; npx tsc -p tsconfig.build.json && powershell cp src/*.d.ts dist",
     "build-linux": "rm dist/*; npx tsc -p tsconfig.build.json && cp src/*.d.ts dist"
   },
@@ -16,16 +18,19 @@
     "dist"
   ],
   "dependencies": {
-    "@types/react": "^19.2.13",
-    "csstype": "^3.2.3"
+    "@types/react": "^19.2.13"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
+    "@preact/preset-vite": "^2.10.3",
     "@types/node": "^25.2.0",
+    "@vitejs/plugin-react": "^5.1.3",
     "eslint": "^9.39.2",
+    "preact": "^10.28.3",
+    "preact-iso": "^2.11.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.9.3",

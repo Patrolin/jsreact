@@ -34,3 +34,5 @@ TODO: build into `.js` and `.d.ts`
 ## dev
 - Run locally: `npm start`
 - Build for release: `npm run build-windows` or `npm run build-linux`
+
+TODO: write a script runner instead of split commands...
