@@ -457,9 +457,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
         component.element = portal.props as Element;
         childOrder = [];
       } break;
-      default:
+      default: {
         throw new Error(String($$typeof));
-      }
+      }}
     } else if (typeof leafType === "string") {
       // HTML element
       desiredElementType = leafType;

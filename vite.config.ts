@@ -20,7 +20,7 @@ function getVitePreset(mode: string): VitePreset {
       tsConfig: require("./tsconfig.react.json"),
       excludeOptimizeDeps: [],
     };
-  }
+  } break;
   case "preact": {
     return {
       aliases: [],
