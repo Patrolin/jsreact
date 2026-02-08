@@ -1,1 +1,1 @@
-export {createRoot} from "../jsreact";
+export { createRoot } from "../jsreact";

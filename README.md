@@ -1,17 +1,38 @@
 # jsreact
-A reimplementation of React that doesn't allow multiple rerenders per frame.
+A reimplementation of React that disallows multiple rerenders per frame.
 
-## How is this achieved?
-If you try to render multiple times per frame, for example:
-```tsx
-  const [state, setState] = useState(0);
-  useEffect(() => {
-    if (state % 10 !== 0) setState(state + 1);
-  });
-```
-Then we immediately render once, and any subsequent renders are scheduled on the next monitor frame via `requestAnimationFrame()`.
+- [How is this achieved?](#how-is-this-achieved-)
+- [Install](#install-)
+- [Usage](#usage-)
+- [Benchmarks](#benchmarks-)
+- [Dev](#dev-)
 
-### But doesn't this break buttons and inputs?
+## How is this achieved? [⤴](#jsreact)
+1) If you call multiple things that want to rerender, for example:
+    ```tsx
+      const [name, setName] = useState("");
+      const [date, setDate] = useState(new Date());
+      return (
+        <button onClick={() => {
+          setName("foo");
+          setDate(new Date());
+        }}>
+          Click me!
+        </button>
+      );
+    ```
+    Then they get batched together into a single rerender (same as React).
+
+2) If you try to render multiple times per frame, for example:
+    ```tsx
+      const [state, setState] = useState(0);
+      useLayoutEffect(() => {
+        if (state % 10 !== 0) setState(state + 1);
+      });
+    ```
+    Then, after the initial render, subsequent renders are scheduled on the next monitor frame via `requestAnimationFrame()`.
+
+### But doesn't this break buttons and inputs? [⤴](#jsreact)
 No, take the following code for a button:
 ```tsx
   const [state, setState] = useState(0);
@@ -33,7 +54,7 @@ Now take this code for a text input:
 ```
 Since the browser updates `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
 
-### But doesn't this break existing React libraries?
+### But doesn't this break existing React libraries? [⤴](#jsreact)
 Only visually, we will still rerender next frame if necessary, but you should consider it a bug in your code if you render something with partially updated state:
   - MUI Popper expects the render to be aborted by React and rerendered immediately, so here it displays incorrectly the first time for 1 monitor frame, but you can hide it with css:
     ```css
@@ -42,17 +63,19 @@ Only visually, we will still rerender next frame if necessary, but you should co
     }
     ```
 
-### So how fast is it?
+TODO: fix race condition with MUI Tooltip component (MUI Popper currently works...)
+
+## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
   - jsreact takes 6 ms (3.5 ms of which is waiting on the browser)
   - the vite bundler takes 22 ms to bundle the css
   - the remaining 302 ms is the solely the browser's fault
 
-Both Preact and React have very similar numbers here.
+Both React and Preact have very similar numbers here.
 
 TODO: make a benchmark with lots of MUI TextFields
 
-## Install
+## Install [⤴](#jsreact)
 1) Copy `src/jsreact` into your project.
 2) In `tsconfig.json`, add:
     ```json
@@ -66,7 +89,7 @@ TODO: make a benchmark with lots of MUI TextFields
       { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/react-dom") },
     ```
 
-## Usage
+## Usage [⤴](#jsreact)
 1) In `index.html`, add:
     ```html
       <script type="module" src="/src/index.tsx"></script>
@@ -88,7 +111,7 @@ TODO: make a benchmark with lots of MUI TextFields
     root.render(<App />);
     ```
 
-## dev
+## dev [⤴](#jsreact)
   - Run locally: `npm start`
   - Build for release: `npm run build-windows` or `npm run build-linux`
 

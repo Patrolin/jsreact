@@ -1,5 +1,5 @@
 import { REACT_ELEMENT_TYPE, type VNode } from "./jsreact";
-export {Fragment} from "./jsreact";
+export { Fragment } from "./jsreact";
 
 export function jsxDEV(
   type: VNode["type"],
