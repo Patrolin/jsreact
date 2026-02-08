@@ -34,8 +34,8 @@ Now take this code for a text input:
 Since the browser updates `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
 
 ### But doesn't this break existing React libraries?
-Only visually:
-  - MUI Popper expects the render to be aborted by React and rerendered immediately (this is bad practice, and you shouldn't ever do this!), so here it displays incorrectly the first time for 1 monitor frame, but you can hide it with some css:
+Only visually, we will still rerender next frame if necessary, but you should consider it a bug in your code if you render something with partially updated state:
+  - MUI Popper expects the render to be aborted by React and rerendered immediately, so here it displays incorrectly the first time for 1 monitor frame, but you can hide it with css:
     ```css
     .MuiPopper-root:not([data-popper-placement]) {
       visibility: hidden;
