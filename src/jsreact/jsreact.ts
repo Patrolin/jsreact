@@ -243,7 +243,9 @@ type JsReactComponent = {
   /** implementation detail */
   flags: number;
 };
-const FLAGS_WILL_RENDER_NEXT_FRAME = 4;
+const FLAGS_TAB_LOST_FOCUS = 16;
+const FLAGS_WILL_RENDER_NEXT_FRAME = 8;
+const FLAGS_WILL_RENDER_NOW = 4;
 const FLAGS_IS_RENDERING = 2;
 const FLAGS_GC = 1;
 // apply intrinsic props
@@ -627,7 +629,7 @@ function rerender(component: JsReactComponent) {
   let whyDidYouRender: string|null = null;
   if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
   const rootComponent = component.root;
-  const jsreact$renderNow = () => {
+  const jsreact$render = async () => {
     try {
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
       if (whyDidYouRender != null) console.debug(whyDidYouRender);
@@ -639,8 +641,8 @@ function rerender(component: JsReactComponent) {
       const renderStartMs = +new Date();
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
-      rootComponent.flags = (rootComponent.flags ^ FLAGS_GC) | FLAGS_IS_RENDERING;
-      jsreact$renderChildren(rootComponent, rootComponent.node, []);
+      rootComponent.flags = rootComponent.flags ^ FLAGS_GC;
+      await jsreact$renderChildren(rootComponent, rootComponent.node, []);
       // run pending effects
       const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
       (rootComponent.legacyComponent as RootHooks) = {
@@ -655,9 +657,9 @@ function rerender(component: JsReactComponent) {
           hook.cleanup?.();
           hook.cleanup = hook.setup();
       };
-      rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
       const renderMs = (new Date() as unknown as number) - renderStartMs;
-      if (renderMs > 33) console.warn(`Render took ${renderMs} ms.`);
+      const tabHasFocus = (rootComponent.flags & FLAGS_TAB_LOST_FOCUS) === 0;
+      if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs} ms.`);
     } catch (error) {
       if (!IS_PRODUCTION) {
         let message = error;
@@ -667,15 +669,27 @@ function rerender(component: JsReactComponent) {
       throw error;
     }
   };
-  const jsreact$renderLater = () => {
+  const jsreact$renderNow = async () => {
+    rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NOW) | FLAGS_IS_RENDERING;
+    await jsreact$render();
+    rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
+  }
+  const jsreact$renderLater = async () => {
     if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
-      rootComponent.flags = rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME;
-      jsreact$renderNow();
-    } else requestAnimationFrame(jsreact$renderLater); // NOTE: if user code took too long, retry
+      rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME) | FLAGS_IS_RENDERING;
+      await jsreact$render();
+      rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
+    } else requestAnimationFrame(jsreact$renderLater); // NOTE: if user code takes too long, retry next frame
   };
-  if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_WILL_RENDER_NEXT_FRAME)) === 0) {
-    jsreact$renderNow();
-  } else if ((rootComponent.flags & FLAGS_WILL_RENDER_NEXT_FRAME) === 0) {
+  if ((rootComponent.flags & (FLAGS_WILL_RENDER_NOW | FLAGS_WILL_RENDER_NEXT_FRAME)) !== 0) {
+    return; // somebody else will do the render
+  }
+  if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
+    // render now (fast path)
+    rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NOW;
+    setTimeout(jsreact$renderNow, 0); // NOTE: run after other event handlers, to reduce the number of rerenders
+  } else {
+    // render later (slow path if user code rerenders too quickly)
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
     requestAnimationFrame(jsreact$renderLater);
   }
@@ -704,6 +718,12 @@ export function createRoot(parent: HTMLElement) {
     rootComponent.root = rootComponent;
     console.log("ayaya.root", rootComponent);
     rerender(rootComponent);
+    // set FLAGS_TAB_LOST_FOCUS
+    if (document.visibilityState === 'hidden') rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === 'hidden') rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
+      else rootComponent.flags = rootComponent.flags & ~FLAGS_TAB_LOST_FOCUS;
+  });
   }
   return {
     render(vnode: ValueOrVNode) {
