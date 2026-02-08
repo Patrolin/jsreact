@@ -42,6 +42,16 @@ Only visually:
     }
     ```
 
+### So how fast is it?
+For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
+  - jsreact takes 6 ms (3.5 ms of which is waiting on the browser)
+  - the vite bundler takes 22 ms to bundle the css
+  - the remaining 302 ms is the solely the browser's fault
+
+Both Preact and React have very similar numbers here.
+
+TODO: make a benchmark with lots of MUI TextFields
+
 ## Install
 1) Copy `src/jsreact` into your project.
 2) In `tsconfig.json`, add:
@@ -79,8 +89,8 @@ Only visually:
     ```
 
 ## dev
-- Run locally: `npm start`
-- Build for release: `npm run build-windows` or `npm run build-linux`
+  - Run locally: `npm start`
+  - Build for release: `npm run build-windows` or `npm run build-linux`
 
 TODO: build into `.js` and `.d.ts` \
 TODO: write a script runner instead of split commands...
