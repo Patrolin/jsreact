@@ -41,11 +41,8 @@ function getVitePreset(mode: string): VitePreset {
   default: {
     return {
       aliases: [
-        { find: "jsreact", replacement: path.resolve(__dirname, "src/jsreact/jsreact.ts") },
         { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
         { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/react-dom") },
-        { find: "react/jsx-runtime", replacement: path.resolve(__dirname, "src/jsreact/jsx-runtime.ts") },
-        { find: "react/jsx-dev-runtime", replacement: path.resolve(__dirname, "src/jsreact/jsx-dev-runtime.ts") },
       ],
       plugins: [],
       tsConfig: require("./tsconfig.json"),
