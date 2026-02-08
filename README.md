@@ -2,6 +2,7 @@
 A reimplementation of React that disallows multiple rerenders per frame.
 
 - [How is this achieved?](#how-is-this-achieved-)
+- [What we don't support](#what-we-dont-support-)
 - [Install](#install-)
 - [Usage](#usage-)
 - [Benchmarks](#benchmarks-)
@@ -75,6 +76,27 @@ Both React and Preact have very similar numbers here.
 
 TODO: make a benchmark with lots of MUI TextFields
 
+## What we don't support [⤴](#jsreact)
+1) React allows you to return `Promise<ReactNode>`:
+    ```tsx
+    function App: FC = () => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(<div>foo</div>);
+        }, 1000);
+      });
+    }
+    ```
+    - This goes against everything we stand for, and will likely never be implemented.
+2) Server side rendering (Why would you ever do this?):
+    - You can just render in ~1 ms on the client (+ waiting to be scheduled by the browser).
+    - You can do a better job of caching data on the client.
+    - You have to handle button and input events on the client anyways.
+    - All of the fancy animations and styles that libraries like MUI do have to happen on the client anyways.
+  3) Most Legacy Component class apis:
+      - We throw an exception for the ones that aren't currently implemented.
+      - You probably don't need these, though we may implement more later.
+
 ## Install [⤴](#jsreact)
 1) Copy `src/jsreact` into your project.
 2) In `tsconfig.json`, add:
@@ -110,6 +132,8 @@ TODO: make a benchmark with lots of MUI TextFields
     const root = createRoot(document.querySelector("#app")!);
     root.render(<App />);
     ```
+
+TODO: list env vars
 
 ## dev [⤴](#jsreact)
   - Run locally: `npm start`
