@@ -3,13 +3,14 @@ import { useState, useRef } from "react";
 
 export function TransitionDemo() {
   // TODO: there's supposed to be a delay between 'entering' and 'entered' - setup preact debug build to compare...
+  // TODO: neither Preact nor React have a delay here... make a demo that actually has a delay?!
   const [inProp, setInProp] = useState(false);
   const nodeRef = useRef(null);
   return (
     <div>
       <Transition nodeRef={nodeRef} in={inProp} timeout={500}>
         {(state) => {
-          console.log("state: ", state);
+          console.log(`state: ${state}`);
           return <div>{state}</div>;
         }}
       </Transition>

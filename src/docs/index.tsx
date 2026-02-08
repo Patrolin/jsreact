@@ -8,8 +8,8 @@ const App: FC<{ foobar: string }> = () => {
   if (currentPath === "/") {
     return (
       <div style={{ padding: 12, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-        {routes.map((route) => (
-          <a style={{ padding: 4 }} href={route.path}>
+        {routes.map((route, i) => (
+          <a key={i} style={{ padding: 4 }} href={route.path}>
             {route.label}
           </a>
         ))}
