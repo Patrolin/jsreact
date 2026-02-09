@@ -778,7 +778,7 @@ function rerender(component: JsReactComponent) {
   if ((rootComponent.flags & FLAGS_WILL_RENDER) !== 0) return; /* somebody else will do the render */
   rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER;
   if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_DID_RENDER_THIS_FRAME)) === 0) {
-    // render now (fast path for infrequent renders)
+    // render now (fast path for initial render and infrequent renders)
     if (SLOW_EVENT_HANDLERS) {
       // Run before other event handlers, same as React.
       queueMicrotask(jsreact$renderNow); /* NOTE: schedule immediately after this event */
