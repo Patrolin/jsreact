@@ -63,7 +63,7 @@ export type Portal = React.ReactPortal;
 export type ElementType = string | React.JSXElementConstructor<any>;
 type Without<T, U> = T extends U ? never : T;
 export type ReactNode = React.ReactNode;
-export type ReactNodeSync = Without<ReactNode, Promise<any>>; // TODO: we could just support promises now
+export type ReactNodeSync = Without<ReactNode, Promise<any>>; /* TODO: we could just support promises now */
 export type ValueOrVNode = Without<ReactNodeSync, Iterable<React.ReactNode>>;
 
 // private types
@@ -228,7 +228,7 @@ export const Children = {
     Children$forEach(children, (child) => {fn.call(thisArg, child, index++)});
   },
   map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any): ReactNode {
-    if (children == null) return children; // NOTE: special case per the spec
+    if (children == null) return children; /* NOTE: special case per the spec */
     let index = 0;
     const acc: ReactNode[] = [];
     Children$forEach(children, (child) => {
@@ -371,7 +371,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   component.childIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
-  component.flags = parent.flags & FLAGS_GC; // NOTE: parent.flags can get set concurrently, so we need to filter them here
+  component.flags = parent.flags & FLAGS_GC; /* NOTE: parent.flags can get set concurrently, so we need to filter them here */
   // run user code
   $component = component;
   component.node = child;
@@ -458,7 +458,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           // componentWillUnmount()
           useLegacyWillUnmount(componentWillUnmount);
         } else {
-          leaf = (leafType as FunctionComponent)(leaf.props as JsxProps); // function component
+          leaf = (leafType as FunctionComponent)(leaf.props as JsxProps);
         }
       } break;
       case FORWARD_REF_SYMBOL: {
@@ -501,7 +501,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       }
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       console.error(`${error}:`, {before: component.element, next: node});
-      if (source) throw new Error(error); // NOTE: only runs in dev build
+      if (source) throw new Error(error); /* NOTE: only runs in dev build */
     }
     // create/use the element
     const isElementNew = currentElement == null;
@@ -559,7 +559,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
   for (let component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
-      delete parent.children[component.key]; // delete old state
+      delete parent.children[component.key]; /* delete old state */
       // run cleanup code
       for (let hook of component.hooks) {
         const hookType = hook.$$typeof;
@@ -650,7 +650,7 @@ function rerender(component: JsReactComponent) {
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
       if (whyDidYouRender != null) console.debug(whyDidYouRender);
       if (infiniteLoop) {
-        if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; // NOTE: the browser UI breaks if you debugger too quickly...
+        if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; /* NOTE: the browser UI breaks if you debugger too quickly... */
         else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
       };
       // render
@@ -695,10 +695,10 @@ function rerender(component: JsReactComponent) {
       rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME) | FLAGS_IS_RENDERING;
       await jsreact$render();
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
-    } else requestAnimationFrame(jsreact$renderLater); // NOTE: If user code takes too long, retry next frame.
+    } else requestAnimationFrame(jsreact$renderLater); /* NOTE: If user code takes too long, retry next frame. */
   };
   if ((rootComponent.flags & (FLAGS_WILL_RENDER_NOW | FLAGS_WILL_RENDER_NEXT_FRAME)) !== 0) {
-    return; // somebody else will do the render
+    return; /* somebody else will do the render */
   }
   if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
     // render now (fast path)
@@ -706,7 +706,7 @@ function rerender(component: JsReactComponent) {
     if (SLOW_EVENT_HANDLERS) {
       queueMicrotask(jsreact$renderNow); /* NOTE: Run before other event handlers, same as React. */
     } else {
-      setTimeout(jsreact$renderNow, 0);/* NOTE: Run after other event handlers, to minimize rerenders */
+      setTimeout(jsreact$renderNow, 0); /* NOTE: Run after other event handlers, to minimize rerenders */
     }
   } else {
     // render later (slow path if user code rerenders too quickly)
