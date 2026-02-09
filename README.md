@@ -150,7 +150,7 @@ TODO: make a benchmark with lots of MUI TextFields
     JSREACT_INFINITE_LOOP_PAUSE?: boolean|"";
   ```
   NOTE: In vite, you have to explicitly forward the env variables with:
-  ```json
+  ```ts
     envPrefix: ["VITE_", "JSREACT_"],
   ```
 
