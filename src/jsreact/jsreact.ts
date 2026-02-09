@@ -17,7 +17,7 @@ function replaceBodyWithError(message: string, throwError: boolean) {
 const env = typeof import.meta !== "undefined" && import.meta.env
   ? import.meta.env
   : (typeof process !== "undefined" ? process.env : {});
-function mapEnvString<T>(value: string|undefined, mapping: (v: string|undefined) => T): T {return mapping(value)}
+function mapEnvString<T = string|undefined>(value: string|undefined, mapping: (v: string|undefined) => T = v => v as T): T {return mapping(value)}
 function parseEnvNumber(name: string, value: string|undefined): number|undefined {
   if ((value ?? "") === "") return undefined;
   const number = parseInt(value ?? "");
@@ -31,7 +31,7 @@ function parseEnvBoolean(name: string, value: string|undefined): boolean|undefin
   replaceBodyWithError(`Invalid boolean in env: ${name}=${value}`, true);
 }
 const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
-const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX, v => v ? `${v} ` : v);
+const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX);
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 
@@ -135,10 +135,9 @@ Component.prototype.render = function(): ReactNode {return null}
 function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
+/** NOTE: libraries use this to detect React features... */
 export const version = 19;
 // createElement()
-const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
-export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
 export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
   const { key, ...rest } = props ?? {};
   const jsxProps = {
@@ -147,8 +146,24 @@ export function createElement(type: VNode["type"], props: VNode["props"] | null 
   }
   return jsx(type, jsxProps, key as VNode["key"]);
 }
-export function memo(component: FC, _arePropsEqual: (_a, _b: any) => boolean) {
+/** TODO: maybe implement this? */
+export function memo(component: FC, _arePropsEqual?: (_a, _b: any) => boolean) {
+  if (_arePropsEqual) console.log("ayaya.memo", component, _arePropsEqual)
   return component;
+}
+// Fragment
+const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
+export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
+function makeExoticComponent<P = {}>(
+  $$typeof: symbol,
+  render?: UntypedNamedExoticComponent<PropsWithChildren<P>>,
+): NamedExoticComponent<P> {
+  if (render == null) {
+    render = (props) => props.children;
+    Object.defineProperty(render, "name", { value: "", configurable: true });
+  }
+  render.$$typeof = $$typeof;
+  return render as NamedExoticComponent<P>;
 }
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
@@ -161,17 +176,6 @@ export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRef
 // createContext()
 const CONTEXT_PROVIDER_SYMBOL = Symbol.for("react.context");
 const CONTEXT_CONSUMER_SYMBOL = Symbol.for("react.consumer");
-function makeExoticComponent<P = {}>(
-  $$typeof: symbol,
-  render?: UntypedNamedExoticComponent<PropsWithChildren<P>>,
-): NamedExoticComponent<P> {
-  if (render == null) {
-    render = (props) => props.children;
-    Object.defineProperty(render, "name", { value: "", configurable: true });
-  }
-  render.$$typeof = $$typeof;
-  return render as NamedExoticComponent<P>;
-}
 export function createContext<T>(defaultValue: T): Context<T> {
   const context = makeExoticComponent(CONTEXT_PROVIDER_SYMBOL) as Context<T>;
   context._currentValue = defaultValue;
