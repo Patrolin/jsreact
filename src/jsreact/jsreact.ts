@@ -704,9 +704,11 @@ function rerender(component: JsReactComponent) {
     // render now (fast path)
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NOW;
     if (SLOW_EVENT_HANDLERS) {
-      queueMicrotask(jsreact$renderNow); /* NOTE: Run before other event handlers, same as React. */
+      // Run before other event handlers, same as React.
+      queueMicrotask(jsreact$renderNow); /* NOTE: schedule immediately after this event */
     } else {
-      setTimeout(jsreact$renderNow, 0); /* NOTE: Run after other event handlers, to minimize rerenders */
+      // Run after other event handlers, to minimize rerenders
+      setTimeout(jsreact$renderNow, 1);
     }
   } else {
     // render later (slow path if user code rerenders too quickly)
