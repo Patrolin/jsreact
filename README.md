@@ -34,6 +34,7 @@ A reimplementation of React that disallows multiple rerenders per frame.
       });
     ```
     Then, after the initial render, subsequent renders are scheduled on the next monitor frame via `requestAnimationFrame()`.
+3) If your code takes too long to render, we pause future renders.
 
 ### But doesn't this break buttons and inputs? [⤴](#jsreact)
 No, take the following code for a button:
@@ -161,6 +162,15 @@ TODO: make a benchmark with lots of MUI TextFields
     /** If true, run a `debugger;` statement before the nth render
      *  instead of throwing an exception. */
     JSREACT_INFINITE_LOOP_PAUSE?: boolean|"";
+    /** If true, schedule fast renders before other event handlers instead of after.
+     *  This results in more renders, which matches React behavior more closely, for example:
+     *    <button onMouseUp={() => setState(state + 1)}
+     *      onClick={() => setState(state + 1)}
+     *    >
+     *      +1
+     *    </button>
+     *  would increment the state by 2 instead of 1 */
+    JSREACT_SLOW_EVENT_HANDLERS?: boolean|"";
   ```
   NOTE: In vite, you have to explicitly forward the env variables with:
   ```ts
@@ -168,7 +178,9 @@ TODO: make a benchmark with lots of MUI TextFields
   ```
 
 ## dev [⤴](#jsreact)
-  - Run locally: `npm start`
+  - Run `src/docs` with jsreact: `npm start`
+  - Run `src/docs` with preact: `npm start-preact`
+  - Run `src/docs` with preact: `npm start-react`
   - Build for release: `npm run build-windows` or `npm run build-linux`
 
 TODO: build into `.js` and `.d.ts` \

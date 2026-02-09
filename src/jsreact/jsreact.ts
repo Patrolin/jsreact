@@ -1,7 +1,6 @@
-import { jsx } from "./jsx-runtime";
 import type React from "react";
 
-// env
+// utils
 /** Replace `document.body` with the `message` while avoiding XSS. */
 function replaceBodyWithError(message: string, throwError: boolean) {
   for (let child of document.body.childNodes) child.remove();
@@ -30,10 +29,13 @@ function parseEnvBoolean(name: string, value: string|undefined): boolean|undefin
   if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return true;
   replaceBodyWithError(`Invalid boolean in env: ${name}=${value}`, true);
 }
+
+// env
 const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
 const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX);
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
+const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -71,7 +73,7 @@ type UntypedNamedExoticComponent<P = {}> = {
   $$typeof?: symbol;
   displayName?: NamedExoticComponent["displayName"];
 }
-type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"] };
+type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"]; props: Element };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
 export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
 export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
@@ -137,27 +139,29 @@ function isComponentClass(type: ReactElement["type"]): type is (new(props: any, 
 }
 /** NOTE: libraries use this to detect React features... */
 export const version = 19;
-// createElement()
-export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...children: ReactNode[]): VNode {
-  const { key, ...rest } = props ?? {};
-  const jsxProps = {
-    children: children.length === 1 ? children[0] : children,
-    ...rest, // NOTE: some people (MUI) pass children inside props...
-  }
-  return jsx(type, jsxProps, key as VNode["key"]);
+export function isValidElement(value: any): value is ReactElement<any, any> {
+  return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
 }
-/** TODO: maybe implement this? */
+export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...argChildren: ReactNode[]): VNode {
+  props = props ?? {};
+  const { key, ...rest } = props;
+  const children = "children" in props
+    ? props.children
+    : argChildren.length === 1 ? argChildren[0] : (argChildren.length === 0 ? null : argChildren);
+  return { $$typeof: REACT_ELEMENT_TYPE, type, key: key as VNode["key"], props: {...rest, children} };
+}
+export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null): ValueOrVNode {
+  if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
+  if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
+  return vnode;
+}
+/** TODO: maybe implement `arePropsEqual`? */
 export function memo(component: FC, _arePropsEqual?: (_a, _b: any) => boolean) {
   if (_arePropsEqual) console.log("ayaya.memo", component, _arePropsEqual)
   return component;
 }
 // Fragment
-const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
-export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
-function makeExoticComponent<P = {}>(
-  $$typeof: symbol,
-  render?: UntypedNamedExoticComponent<PropsWithChildren<P>>,
-): NamedExoticComponent<P> {
+function makeExoticComponent<P = {}>($$typeof: symbol, render?: UntypedNamedExoticComponent<PropsWithChildren<P>>): NamedExoticComponent<P> {
   if (render == null) {
     render = (props) => props.children;
     Object.defineProperty(render, "name", { value: "", configurable: true });
@@ -165,6 +169,8 @@ function makeExoticComponent<P = {}>(
   render.$$typeof = $$typeof;
   return render as NamedExoticComponent<P>;
 }
+const FRAGMENT_SYMBOL = Symbol.for("react.fragment");
+export const Fragment = makeExoticComponent(FRAGMENT_SYMBOL);
 // forwardRef()
 export const FORWARD_REF_SYMBOL = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
@@ -192,59 +198,52 @@ export function useContext<T>(context: Context<T>): T {
 }
 // createPortal()
 const PORTAL_SYMBOL = Symbol.for("react.portal");
-export function createPortal(children: ReactNode, node: Element, key?: JsxKey): PortalVNode {
-  return {
-    $$typeof: REACT_ELEMENT_TYPE,
-    type: makeExoticComponent(PORTAL_SYMBOL),
-    key: key as VNode["key"],
-    props: node,
-    children,
-  };
+export function createPortal(children: ReactNode, node: Element, key?: VNode["key"]): PortalVNode {
+  return { $$typeof: REACT_ELEMENT_TYPE, type: makeExoticComponent(PORTAL_SYMBOL), key, props: node, children };
 }
-export function isValidElement(value: any): value is ReactElement<any, any> {
-  return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
-}
-export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null): ValueOrVNode {
-  if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
-  if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
-  return vnode;
-}
-function Children$toArray(children: ReactNode, out: ReactNode[]) {
+// React.Children
+function Children$forEach(children: ReactNode, fn: (child: ReactNode) => void) {
   if (isIterable(children)) {
-    for (let c of children) out.push(c);
-  } else {
-    out.push(children);
-  }
+    for (let c of children) Children$forEach(c, fn);
+  } else fn(children);
+}
+function Children$toArrayExcludingNullsy(children: ReactNode, out: ReactNode[]) {
+  if (isIterable(children)) {
+    for (let c of children) Children$toArrayExcludingNullsy(c, out);
+  } else if (children != null) out.push(children);
+}
+function Children$toArrayExcludingNullsyAndBoolean(children: ReactNode, out: ReactNode[]) {
+  if (isIterable(children)) {
+    for (let c of children) Children$toArrayExcludingNullsyAndBoolean(c, out);
+  } else if (children != null && typeof children != "boolean") out.push(children);
 }
 export const Children = {
-  count(children) {
+  count(children: ReactNode): number {
+    let index = 0;
+    Children$forEach(children, (_child) => {index++});
+    return index;
+  },
+  forEach(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any): undefined {
+    let index = 0;
+    Children$forEach(children, (child) => {fn.call(thisArg, child, index++)});
+  },
+  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any): ReactNode {
+    if (children == null) return children; // NOTE: special case per the spec
+    let index = 0;
     const acc: ReactNode[] = [];
-    Children$toArray(children, acc);
-    return acc.length;
-  },
-  forEach(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
-    let acc: ReactNode[] = [];
-    Children$toArray(children, acc);
-    acc.forEach((child, index) => fn.call(thisArg, child, index));
-  },
-  map(children: ReactNode, fn: (child: ReactNode, index: number) => any, thisArg?: any) {
-    // map
-    let acc: ReactNode[] = [];
-    Children$toArray(children, acc);
-    const mapped = acc.map((child, index) => fn.call(thisArg, child, index));
-    // flatten
-    acc = []
-    Children$toArray(mapped, acc);
+    Children$forEach(children, (child) => {
+      Children$toArrayExcludingNullsy(fn.call(thisArg, child, index++), acc);
+    });
     return acc;
   },
-  only(children: ReactNode) {
-    if (!isValidElement(children)) throw new Error("Children.only expects a single element");
+  only(children: ReactNode): ReactNode {
+    if (!isValidElement(children)) throw new Error("Children.only expects a single valid React element");
     return children;
   },
-  toArray(children: ReactNode) {
+  toArray(children: ReactNode): ReactNode[] {
     const acc: ReactNode[] = [];
-    Children$toArray(children, acc);
-    return acc.filter(v => v != null && typeof v !== "boolean"); // NOTE: this is very strange, but that's what the spec says...
+    Children$toArrayExcludingNullsyAndBoolean(children, acc);
+    return acc;
   },
 }
 
@@ -295,7 +294,7 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   }
   // className
   if (className) element.className = Array.isArray(className) ? className.join(" ") : className;
-  // attribute/events
+  // attributes/events
   for (let [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
       const type = key.slice(2).toLowerCase();
@@ -318,9 +317,6 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
 function isIterable(value: ReactNode): value is Iterable<ReactNode> {
   return typeof value !== "string" && typeof value?.[Symbol.iterator] === "function";
 }
-function isVNode(leaf: ValueOrVNode): leaf is ReactElement {
-  return leaf !== null && typeof leaf === "object";
-}
 function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
   if (typeof ref === "function") ref(value);
   else if (ref) ref.current = value;
@@ -334,7 +330,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   // get component state
   let keyLeft: Value;
   let keyRight: string;
-  if (isVNode(child)) {
+  if (isValidElement(child)) {
     keyLeft = child.key;
     const childType = child.type;
     if (typeof childType === "string") {
@@ -383,7 +379,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   let desiredElementType = "";
   let context: Context<any> | undefined;
   let prevContextValue: any;
-  if (!isVNode(leaf)) {
+  if (!isValidElement(leaf)) {
     // Value
     if (typeof leaf === "boolean" || leaf == null) return;
     desiredElementType = "Text";
@@ -496,7 +492,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     if (currentElement != null && (currentElement?.tagName?.toLowerCase() ?? "Text") !== desiredElementType) {
       let node: Partial<ValueOrVNode> = child;
       let source = "";
-      if (isVNode(child)) {
+      if (isValidElement(child)) {
         const vnode = {...child} as VNode;
         source = vnode.source != null ? `${vnode.source?.fileName}:${vnode.source?.lineNumber}` : "";
         delete vnode.key;
@@ -536,7 +532,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
 }
 function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder);
-  removeUnusedChildren(parent, parent.flags & FLAGS_GC, true);
+  unmountUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null && !(parentElement instanceof Text)) {
@@ -552,7 +548,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
     }
   }
 }
-function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeElement: boolean) {
+function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeChildrenFromDOM: boolean) {
   //console.log("ayaya.gc.parent", {
   //  parent: parent.key,
   //  parentGcFlag,
@@ -584,18 +580,20 @@ function removeUnusedChildren(parent: JsReactComponent, parentGcFlag: number, re
       if (element != null) {
         // set ref = null
         const child = component.node;
-        const ref = isVNode(child) ? (child.props as DOMProps).ref : undefined;
+        const ref = isValidElement(child) ? (child.props as DOMProps).ref : undefined;
         setRef(ref, null);
         // remove the element
-        if (removeElement) {
+        if (removeChildrenFromDOM) {
           const $$typeof = ((component.node as VNode|null)?.type as NamedExoticComponent|null)?.$$typeof;
-          if ($$typeof !== PORTAL_SYMBOL) {
+          if ($$typeof === PORTAL_SYMBOL) {
+            removeChildrenFromDOM = true;
+          } else {
             element.remove();
-            removeElement = false;
+            removeChildrenFromDOM = false;
           }
         }
       }
-      removeUnusedChildren(component, parentGcFlag, removeElement);
+      unmountUnusedChildren(component, parentGcFlag, removeChildrenFromDOM);
     }
   }
 }
@@ -697,7 +695,7 @@ function rerender(component: JsReactComponent) {
       rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME) | FLAGS_IS_RENDERING;
       await jsreact$render();
       rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
-    } else requestAnimationFrame(jsreact$renderLater); // NOTE: if user code takes too long, retry next frame
+    } else requestAnimationFrame(jsreact$renderLater); // NOTE: If user code takes too long, retry next frame.
   };
   if ((rootComponent.flags & (FLAGS_WILL_RENDER_NOW | FLAGS_WILL_RENDER_NEXT_FRAME)) !== 0) {
     return; // somebody else will do the render
@@ -705,7 +703,11 @@ function rerender(component: JsReactComponent) {
   if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
     // render now (fast path)
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NOW;
-    setTimeout(jsreact$renderNow, 0); // NOTE: run after other event handlers, to reduce the number of rerenders
+    if (SLOW_EVENT_HANDLERS) {
+      queueMicrotask(jsreact$renderNow); /* NOTE: Run before other event handlers, same as React. */
+    } else {
+      setTimeout(jsreact$renderNow, 0);/* NOTE: Run after other event handlers, to minimize rerenders */
+    }
   } else {
     // render later (slow path if user code rerenders too quickly)
     rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;

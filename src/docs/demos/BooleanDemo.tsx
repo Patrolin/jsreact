@@ -14,6 +14,7 @@ const MyContext = React.createContext(0);
 /** Test showing/hiding a Fragment component */
 export const BooleanDemo: FC = () => {
   const [state, setState] = useState(0);
+  console.log("button!!!");
   return (
     <div>
       {state % 3 !== 0 && (
@@ -21,7 +22,18 @@ export const BooleanDemo: FC = () => {
           <SomeComponent />
         </>
       )}
-      <button onClick={() => setState(state + 1)}>+1</button>
+      <button
+        onMouseUp={() => {
+          console.log("button.onMouseUp()");
+          setState(state + 1);
+        }}
+        onClick={() => {
+          console.log("button.onClick()");
+          setState(state + 1);
+        }}
+      >
+        +1
+      </button>
       <MyContext value={state}>
         <MyContext.Consumer>{(value) => value}</MyContext.Consumer>
       </MyContext>

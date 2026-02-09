@@ -9,5 +9,5 @@ export function jsxDEV(
   source: VNode["source"],
   _self: any,
 ): VNode {
-  return { $$typeof: REACT_ELEMENT_TYPE, type, key, props: {...props, children: props?.children ?? null}, source };
+  return { $$typeof: REACT_ELEMENT_TYPE, type, key, props: {...props, children: props?.children}, source };
 }
