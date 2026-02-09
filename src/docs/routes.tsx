@@ -4,6 +4,7 @@ import { BooleanDemo } from "./demos/BooleanDemo";
 import { ComponentClassDemo } from "./demos/ComponentClassDemo";
 import { TooltipDemo } from "./demos/TooltipDemo";
 import { ButtonDemo } from "./demos/ButtonDemo";
+import { CSSTransitionDemo } from "./demos/CSSTransitionDemo";
 import { TransitionDemo } from "./demos/TransitionDemo";
 
 type Route = {
@@ -31,6 +32,11 @@ export const routes: Route[] = [
     path: "/popper",
     label: "MUI Popper",
     component: PopperDemo,
+  },
+  {
+    path: "/css-transition",
+    label: "react-transition-group CSSTransition",
+    component: CSSTransitionDemo,
   },
   {
     path: "/transition",

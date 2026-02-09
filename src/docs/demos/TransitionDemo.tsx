@@ -1,20 +1,37 @@
-import { Transition } from "react-transition-group";
-import { useState, useRef } from "react";
+import { useState, useRef, CSSProperties } from "react";
+import { Transition, TransitionStatus } from "react-transition-group";
 
+const duration = 500;
+function getStyle(state: TransitionStatus): CSSProperties {
+  let transition: CSSProperties = {};
+  if (state === "entering" || state === "entered") {
+    transition = { opacity: 1, transform: "scale(1)" };
+  } else if (state === "exiting" || state === "exited") {
+    transition = { opacity: 0, transform: "scale(0.95)" };
+  }
+  return {
+    transition: `opacity ${duration}ms ease, transform ${duration}ms ease`,
+    opacity: 0,
+    transform: "scale(0.95)",
+    ...transition,
+  };
+}
 export function TransitionDemo() {
-  // TODO: there's supposed to be a delay between 'entering' and 'entered' - setup preact debug build to compare...
-  // TODO: neither Preact nor React have a delay here... make a demo that actually has a delay?!
-  const [inProp, setInProp] = useState(false);
-  const nodeRef = useRef(null);
+  const [show, setShow] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   return (
     <div>
-      <Transition nodeRef={nodeRef} in={inProp} timeout={500}>
+      <button onClick={() => setShow(!show)}>Toggle</button>
+      <Transition nodeRef={ref} in={show} timeout={duration} unmountOnExit>
         {(state) => {
           console.log(`state: ${state}`);
-          return <div>{state}</div>;
+          return (
+            <div ref={ref} style={getStyle(state)}>
+              I transition using inline styles ✨
+            </div>
+          );
         }}
       </Transition>
-      <button onClick={() => setInProp(!inProp)}>Click to Toggle</button>
     </div>
   );
 }

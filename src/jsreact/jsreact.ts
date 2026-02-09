@@ -2,7 +2,7 @@ import type React from "react";
 
 // utils
 /** Replace `document.body` with the `message` while avoiding XSS. */
-function replaceBodyWithError(message: string, throwError: boolean) {
+function replaceDocumentWithError(message: string, throwError: boolean) {
   for (let child of document.body.childNodes) child.remove();
   const h3 = document.createElement("h3");
   h3.className = "jsreact-error";
@@ -21,13 +21,13 @@ function parseEnvNumber(name: string, value: string|undefined): number|undefined
   if ((value ?? "") === "") return undefined;
   const number = parseInt(value ?? "");
   if (!Number.isNaN(number)) return number;
-  replaceBodyWithError(`Invalid number in env: ${name}=${value}`, true);
+  replaceDocumentWithError(`Invalid number in env: ${name}=${value}`, true);
 }
 function parseEnvBoolean(name: string, value: string|undefined): boolean|undefined {
   if ((value ?? "") === "") return undefined;
   if (value === "1" || value === "true" || value === "yes" || value === "y" || value === "Y") return true;
   if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return true;
-  replaceBodyWithError(`Invalid boolean in env: ${name}=${value}`, true);
+  replaceDocumentWithError(`Invalid boolean in env: ${name}=${value}`, true);
 }
 
 // env
@@ -136,6 +136,25 @@ Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: Compo
 Component.prototype.render = function(): ReactNode {return null}
 function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
+}
+/** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
+function findDOMNode_Component(componentClass: ComponentClass, component: JsReactComponent) {
+  if (component.legacyComponent === componentClass) return component;
+  for (let c of Object.values(component.children)) {
+    const search = findDOMNode_Component(componentClass, c);
+    if (search != null) return search;
+  }
+}
+function findDOMNode_firstElement(component: JsReactComponent) {
+  const element = component.element;
+  if (element != null) return element;
+  const firstChild = Object.values(component.children)[0];
+  if (firstChild == null) return null;
+  return findDOMNode_firstElement(firstChild);
+}
+export function findDOMNode(componentClass: ComponentClass) {
+  const component = findDOMNode_Component(componentClass, $component.root);
+  return findDOMNode_firstElement(component);
 }
 /** NOTE: libraries use this to detect React features... */
 export const version = 19;
@@ -275,12 +294,69 @@ type JsReactComponent = {
   flags: number;
 };
 const FLAGS_TAB_LOST_FOCUS = 16;
-const FLAGS_WILL_RENDER_NEXT_FRAME = 8;
-const FLAGS_WILL_RENDER_NOW = 4;
-const FLAGS_IS_RENDERING = 2;
+const FLAGS_DID_RENDER_THIS_FRAME = 8;
+const FLAGS_IS_RENDERING = 4;
+const FLAGS_WILL_RENDER = 2;
 const FLAGS_GC = 1;
+function _printFlags(flags: number) {
+  const acc: string[] = [];
+  if (flags & FLAGS_GC) acc.push("FLAGS_GC");
+  if (flags & FLAGS_WILL_RENDER) acc.push("FLAGS_WILL_RENDER");
+  if (flags & FLAGS_IS_RENDERING) acc.push("FLAGS_IS_RENDERING");
+  if (flags & FLAGS_DID_RENDER_THIS_FRAME) acc.push("FLAGS_DID_RENDER_THIS_FRAME");
+  if (flags & FLAGS_TAB_LOST_FOCUS) acc.push("FLAGS_TAB_LOST_FOCUS");
+  return `{${acc.join(", ")}}`;
+};
+void _printFlags; /* disable unused warning */
 // apply intrinsic props
-const PASSIVE_EVENTS = new Set(["touchstart", "touchmove", "wheel"]);
+function setFromHereString(str: string, splitChar = "\n"): Set<string> {return new Set(str.trim().split(splitChar))}
+const PASSIVE_EVENTS = setFromHereString(`touchstart,touchmove,wheel`, ',');
+const UNITLESS_CSS = setFromHereString(`
+animationIterationCount
+aspectRatio
+borderImageOutset
+borderImageSlice
+borderImageWidth
+boxFlex
+boxFlexGroup
+boxOrdinalGroup
+columnCount
+columns
+flex
+flexGrow
+flexPositive
+flexShrink
+flexNegative
+flexOrder
+gridArea
+gridRow
+gridRowEnd
+gridRowSpan
+gridRowStart
+gridColumn
+gridColumnEnd
+gridColumnSpan
+gridColumnStart
+fontWeight
+lineClamp
+lineHeight
+opacity
+order
+orphans
+scale
+tabSize
+widows
+zIndex
+zoom
+fillOpacity
+floodOpacity
+stopOpacity
+strokeDasharray
+strokeDashoffset
+strokeMiterlimit
+strokeOpacity
+strokeWidth
+`); /* TODO: get a better list of unitless quantities... */
 function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
@@ -289,7 +365,8 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
       if (k.startsWith("--")) (element as HTMLElement).style.setProperty(k, v);
-      else (element as HTMLElement).style[k] = typeof v == "number" ? `${v}px` : v;
+      else if (UNITLESS_CSS.has(k)) (element as HTMLElement).style[k] = v;
+      else (element as HTMLElement).style[k] = (typeof v === "number" ? `${v}px` : v);
     }
   }
   // className
@@ -645,19 +722,22 @@ function rerender(component: JsReactComponent) {
     whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
   }
   const rootComponent = component.root;
-  const jsreact$render = async () => {
+  const jsreact$renderNow = async () => {
     try {
+      // print debug info
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
-      if (whyDidYouRender != null) console.debug(whyDidYouRender);
+      if (whyDidYouRender != null) {
+        console.debug(`${(performance.now()).toFixed(0)} ms ${whyDidYouRender}`);
+      }
       if (infiniteLoop) {
         if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; /* NOTE: the browser UI breaks if you debugger too quickly... */
         else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
       };
       // render
-      const renderStartMs = +new Date();
+      const renderStartMs = performance.now();
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
-      rootComponent.flags = rootComponent.flags ^ FLAGS_GC;
+      rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RENDER) | FLAGS_IS_RENDERING;
       await jsreact$renderChildren(rootComponent, rootComponent.node, []);
       // run pending effects
       const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
@@ -673,36 +753,32 @@ function rerender(component: JsReactComponent) {
           hook.cleanup?.();
           hook.cleanup = hook.setup();
       };
-      const renderMs = (new Date() as unknown as number) - renderStartMs;
+      // delay next render until next monitor frame
+      rootComponent.flags = (rootComponent.flags & ~FLAGS_IS_RENDERING) | FLAGS_DID_RENDER_THIS_FRAME;
+      requestAnimationFrame(() => {
+        rootComponent.flags = rootComponent.flags & ~FLAGS_DID_RENDER_THIS_FRAME;
+      });
+      // print debug info
+      const renderMs = performance.now() - renderStartMs;
       const tabHasFocus = (rootComponent.flags & FLAGS_TAB_LOST_FOCUS) === 0;
       if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs} ms.`);
     } catch (error) {
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
-        replaceBodyWithError(`Uncaught ${message}`, false);
+        replaceDocumentWithError(`Uncaught ${message}`, false);
       }
       throw error;
     }
   };
-  const jsreact$renderNow = async () => {
-    rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NOW) | FLAGS_IS_RENDERING;
-    await jsreact$render();
-    rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
-  }
   const jsreact$renderLater = async () => {
-    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
-      rootComponent.flags = (rootComponent.flags & ~FLAGS_WILL_RENDER_NEXT_FRAME) | FLAGS_IS_RENDERING;
-      await jsreact$render();
-      rootComponent.flags = rootComponent.flags & ~FLAGS_IS_RENDERING;
-    } else requestAnimationFrame(jsreact$renderLater); /* NOTE: If user code takes too long, retry next frame. */
+    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) await jsreact$renderNow();
+    else requestAnimationFrame(jsreact$renderLater); /* NOTE: If user code takes too long, retry next frame. */
   };
-  if ((rootComponent.flags & (FLAGS_WILL_RENDER_NOW | FLAGS_WILL_RENDER_NEXT_FRAME)) !== 0) {
-    return; /* somebody else will do the render */
-  }
-  if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) {
-    // render now (fast path)
-    rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NOW;
+  if ((rootComponent.flags & FLAGS_WILL_RENDER) !== 0) return; /* somebody else will do the render */
+  rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER;
+  if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_DID_RENDER_THIS_FRAME)) === 0) {
+    // render now (fast path for infrequent renders)
     if (SLOW_EVENT_HANDLERS) {
       // Run before other event handlers, same as React.
       queueMicrotask(jsreact$renderNow); /* NOTE: schedule immediately after this event */
@@ -712,7 +788,6 @@ function rerender(component: JsReactComponent) {
     }
   } else {
     // render later (slow path if user code rerenders too quickly)
-    rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER_NEXT_FRAME;
     requestAnimationFrame(jsreact$renderLater);
   }
 }

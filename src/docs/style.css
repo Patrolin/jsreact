@@ -20,3 +20,9 @@ html, body {
 .MuiPopper-root:not([data-popper-placement]) {
 	visibility: hidden;
 }
+.fade-enter {
+	opacity: 0.5;
+}
+.fade-exit {
+	opacity: 0.5;
+}

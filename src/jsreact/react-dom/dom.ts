@@ -1,1 +1,1 @@
-export { createPortal } from "../jsreact"
+export { createPortal, findDOMNode } from "../jsreact";
