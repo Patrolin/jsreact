@@ -2,11 +2,11 @@
 A reimplementation of React that disallows multiple rerenders per frame.
 
 - [How is this achieved?](#how-is-this-achieved-)
+- [Benchmarks](#benchmarks-)
 - [What we don't support](#what-we-dont-support-)
 - [Install](#install-)
 - [Usage](#usage-)
   - [Environment variables](#environment-variables-)
-- [Benchmarks](#benchmarks-)
 - [Dev](#dev-)
 
 ## How is this achieved? [⤴](#jsreact)
@@ -65,7 +65,7 @@ Only visually, we will still rerender next frame if necessary, but you should co
     }
     ```
 
-TODO: fix race condition with MUI Tooltip component (MUI Popper currently works...)
+TODO: fix race condition with MUI Tooltip component (MUI Popper works perfectly...)
 
 ## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
