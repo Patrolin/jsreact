@@ -6,6 +6,7 @@ A reimplementation of React that disallows multiple rerenders per frame.
 - [What we don't support](#what-we-dont-support-)
 - [Install](#install-)
 - [Usage](#usage-)
+  - [CSS variables](#using-css-variables-)
   - [Environment variables](#environment-variables-)
 - [Dev](#dev-)
 
@@ -134,7 +135,7 @@ TODO: make a benchmark with lots of MUI TextFields
     root.render(<App />);
     ```
 
-### Using css variables
+### Using CSS variables [⤴](#jsreact)
   ```ts
     <div style={{ "--foo": "1px" }} />
   ```

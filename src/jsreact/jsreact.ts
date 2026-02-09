@@ -289,12 +289,8 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
-      v = typeof v == "number" ? `${v}px` : v ?? null;
-      if (k.startsWith("--")) {
-        (element as HTMLElement).style.setProperty(k, v);
-      } else {
-        (element as HTMLElement).style[k] = v;
-      }
+      if (k.startsWith("--")) (element as HTMLElement).style.setProperty(k, v);
+      else (element as HTMLElement).style[k] = typeof v == "number" ? `${v}px` : v;
     }
   }
   // className
