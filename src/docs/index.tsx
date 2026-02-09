@@ -7,7 +7,7 @@ const App: FC<{ foobar: string }> = () => {
   const currentPath = window.location.pathname || "/";
   if (currentPath === "/") {
     return (
-      <div style={{ padding: 12, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+      <div style={{ "--foo": 1, "padding": 12, "display": "flex", "flexDirection": "column", "alignItems": "flex-start" }}>
         {routes.map((route, i) => (
           <a key={i} style={{ padding: 4 }} href={route.path}>
             {route.label}

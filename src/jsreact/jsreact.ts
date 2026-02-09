@@ -282,21 +282,6 @@ const FLAGS_IS_RENDERING = 2;
 const FLAGS_GC = 1;
 // apply intrinsic props
 const PASSIVE_EVENTS = new Set(["touchstart", "touchmove", "wheel"]);
-function camelCaseToKebabCase(camelCase: string) {
-  // TODO: optimize this function
-  const slices: string[] = [];
-  let i = 0;
-  let j = 0;
-  for (; j < camelCase.length; j++) {
-    const char = camelCase[j];
-    if (char >= 'A' && char <= 'Z') {
-      slices.push(camelCase.slice(i, j));
-      i = j;
-    }
-  }
-  slices.push(camelCase.slice(i, camelCase.length));
-  return slices.join("-").toLowerCase();
-}
 function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
@@ -304,9 +289,12 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
-      k = camelCaseToKebabCase(k);
       v = typeof v == "number" ? `${v}px` : v ?? null;
-      (element as HTMLElement).style.setProperty(k, v);
+      if (k.startsWith("--")) {
+        (element as HTMLElement).style.setProperty(k, v);
+      } else {
+        (element as HTMLElement).style[k] = v;
+      }
     }
   }
   // className

@@ -134,6 +134,18 @@ TODO: make a benchmark with lots of MUI TextFields
     root.render(<App />);
     ```
 
+### Using css variables
+  ```ts
+    <div style={{ "--foo": "1px" }} />
+  ```
+  NOTE: Currently there is [a bug](https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/74499) in `@types/react`, so you also have to create a `src/types/react-css-vars.d.ts` with:
+  ```ts
+  import "react";
+  declare module "react" {
+    interface CSSProperties { [key: `--${string}`]: string|number|undefined|null }
+  }
+  ```
+
 ### Environment variables [⤴](#jsreact)
   ```ts
     /** Disable crashing the page when an exception is thrown during rendering,
