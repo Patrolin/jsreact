@@ -294,16 +294,16 @@ type JsReactComponent = {
   flags: number;
 };
 const FLAGS_TAB_LOST_FOCUS = 16;
-const FLAGS_DID_RENDER_THIS_FRAME = 8;
+const FLAGS_RERENDERED_THIS_FRAME = 8;
 const FLAGS_IS_RENDERING = 4;
-const FLAGS_WILL_RENDER = 2;
+const FLAGS_WILL_RERENDER = 2;
 const FLAGS_GC = 1;
 function _printFlags(flags: number) {
   const acc: string[] = [];
   if (flags & FLAGS_GC) acc.push("FLAGS_GC");
-  if (flags & FLAGS_WILL_RENDER) acc.push("FLAGS_WILL_RENDER");
+  if (flags & FLAGS_WILL_RERENDER) acc.push("FLAGS_WILL_RERENDER");
   if (flags & FLAGS_IS_RENDERING) acc.push("FLAGS_IS_RENDERING");
-  if (flags & FLAGS_DID_RENDER_THIS_FRAME) acc.push("FLAGS_DID_RENDER_THIS_FRAME");
+  if (flags & FLAGS_RERENDERED_THIS_FRAME) acc.push("FLAGS_RERENDERED_THIS_FRAME");
   if (flags & FLAGS_TAB_LOST_FOCUS) acc.push("FLAGS_TAB_LOST_FOCUS");
   return `{${acc.join(", ")}}`;
 };
@@ -737,7 +737,7 @@ function rerender(component: JsReactComponent) {
       const renderStartMs = performance.now();
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
-      rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RENDER) | FLAGS_IS_RENDERING;
+      rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RERENDER) | FLAGS_IS_RENDERING;
       await jsreact$renderChildren(rootComponent, rootComponent.node, []);
       // run pending effects
       const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
@@ -754,9 +754,9 @@ function rerender(component: JsReactComponent) {
           hook.cleanup = hook.setup();
       };
       // delay next render until next monitor frame
-      rootComponent.flags = (rootComponent.flags & ~FLAGS_IS_RENDERING) | FLAGS_DID_RENDER_THIS_FRAME;
+      rootComponent.flags = (rootComponent.flags & ~FLAGS_IS_RENDERING) | FLAGS_RERENDERED_THIS_FRAME;
       requestAnimationFrame(() => {
-        rootComponent.flags = rootComponent.flags & ~FLAGS_DID_RENDER_THIS_FRAME;
+        rootComponent.flags = rootComponent.flags & ~FLAGS_RERENDERED_THIS_FRAME;
       });
       // print debug info
       const renderMs = performance.now() - renderStartMs;
@@ -771,24 +771,19 @@ function rerender(component: JsReactComponent) {
       throw error;
     }
   };
-  const jsreact$renderLater = () => {
+  const jsreact$rerenderLater = () => {
     if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) jsreact$renderNow();
-    else requestAnimationFrame(jsreact$renderLater); /* NOTE: If user code takes too long, retry next frame. */
+    else requestAnimationFrame(jsreact$rerenderLater); /* NOTE: If user code renders too slowly, retry next monitor frame. */
   };
-  if ((rootComponent.flags & FLAGS_WILL_RENDER) !== 0) return; /* somebody else will do the render */
-  rootComponent.flags = rootComponent.flags | FLAGS_WILL_RENDER;
-  if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_DID_RENDER_THIS_FRAME)) === 0) {
-    // render now (fast path for initial render and infrequent renders)
-    if (SLOW_EVENT_HANDLERS) {
-      // Run before other event handlers, same as React.
-      queueMicrotask(jsreact$renderNow); /* NOTE: schedule immediately after this event */
-    } else {
-      // Run after other event handlers, to minimize rerenders
-      setTimeout(jsreact$renderNow, 1);
-    }
+  if ((rootComponent.flags & FLAGS_WILL_RERENDER) !== 0) return; /* NOTE: batch rerenders together when possible */
+  rootComponent.flags = rootComponent.flags | FLAGS_WILL_RERENDER;
+  if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_RERENDERED_THIS_FRAME)) === 0) {
+    // fast path for initial render and infrequent rerenders
+    if (SLOW_EVENT_HANDLERS) queueMicrotask(jsreact$renderNow); /* NOTE: Run before other event handlers, same as React. */
+    else setTimeout(jsreact$renderNow, 1); /* NOTE: Run after other event handlers, to minimize rerenders */
   } else {
-    // render later (slow path if user code rerenders too quickly)
-    requestAnimationFrame(jsreact$renderLater);
+    // delay to next monitor frame if user code rerenders too quickly
+    requestAnimationFrame(jsreact$rerenderLater);
   }
 }
 export function createRoot(parent: HTMLElement) {

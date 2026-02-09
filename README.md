@@ -25,7 +25,7 @@ A reimplementation of React that disallows multiple rerenders per frame.
       );
     ```
     Then the rerenders get batched together into a single render (same as React).
-2) If you try to render every frame, for example:
+2) If you rerender every frame, for example:
     ```tsx
       const [state, setState] = useState(0);
       useLayoutEffect(() => {
