@@ -513,7 +513,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           }
           // getSnapshotBeforeUpdate()
           const snapshot = undefined;
-          // componentDidMount(), componentDidUpdate(), TODO: better debug info
+          // componentDidMount(), componentDidUpdate()
           useLegacyComponentUpdate(() => {
             if (instanceIsNew) componentDidMount?.call(instance);
             else componentDidUpdate?.call(instance, prevProps, prevState, snapshot);

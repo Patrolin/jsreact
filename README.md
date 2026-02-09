@@ -11,7 +11,7 @@ A reimplementation of React that disallows multiple rerenders per frame.
 - [Dev](#dev-)
 
 ## How is this achieved? [⤴](#jsreact)
-1) If you call multiple things that want to rerender, for example:
+1) If you rerender multiple times in a row, for example:
     ```tsx
       const [name, setName] = useState("");
       const [date, setDate] = useState(new Date());
@@ -24,17 +24,18 @@ A reimplementation of React that disallows multiple rerenders per frame.
         </button>
       );
     ```
-    Then they get batched together into a single rerender (same as React).
+    Then the rerenders get batched together into a single render (same as React).
 
-2) If you try to render multiple times per frame, for example:
+2) If you try to render every frame, for example:
     ```tsx
       const [state, setState] = useState(0);
       useLayoutEffect(() => {
         if (state % 10 !== 0) setState(state + 1);
       });
     ```
-    Then, after the initial render, subsequent renders are scheduled on the next monitor frame via `requestAnimationFrame()`.
-3) If your code takes too long to render, we pause future renders.
+    Then the first render is scheduled as soon as possible,
+    but subsequent renders are scheduled on different monitor frames via `requestAnimationFrame()`.
+3) If your app takes too long to render (>1 monitor frame), then we stall future renders.
 
 ### But doesn't this break buttons and inputs? [⤴](#jsreact)
 No, take the following code for a button:
@@ -46,7 +47,7 @@ No, take the following code for a button:
     </button>
   );
 ```
-The slowest refresh rate of a monitor is 30Hz (or 20Hz for ancient CRTs), while the fastest a human can reasonably click is ~10 times per second, this allows us to do at least 3 renders in between mouse clicks - plenty of time to update the onClick (technically you could also do a `onClick={() => setState((currentState) => currentState + 1)}`, which updates instantly).
+The slowest refresh rate of a monitor is 30Hz (or 20Hz for ancient CRTs), while the fastest a human can reasonably click is ~10 times per second, this allows us to do at least 3 renders in between mouse clicks - plenty of time to update the onClick (unless your app is horrendously slow, but technically you can always do a `onClick={() => setState((currentState) => currentState + 1)}`, which updates instantly).
 
 Now take this code for a text input:
 ```tsx
@@ -59,15 +60,8 @@ Now take this code for a text input:
 Since the browser updates `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
 
 ### But doesn't this break existing React libraries? [⤴](#jsreact)
-Only visually, we will still rerender next frame if necessary, but you should consider it a bug in your code if you render something with partially updated state:
-  - MUI Popper expects the render to be aborted by React and rerendered immediately, so here it displays incorrectly the first time for 1 monitor frame, but you can fix it with css:
-    ```css
-    .MuiPopper-root:not([data-popper-placement]) {
-      visibility: hidden;
-    }
-    ```
-
-TODO: fix race condition with MUI Tooltip component (MUI Popper works perfectly...)
+No, `@mui/material` relies on `react-transition-group`, which relies on dumb legacy `Component` class apis, but it still works perfectly under jsreact,
+since we force conflicting renders to happen on different frames, so each one gets its layout effects separately.
 
 ## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
