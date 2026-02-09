@@ -26,8 +26,8 @@ function parseEnvNumber(name: string, value: string|undefined): number|undefined
 }
 function parseEnvBoolean(name: string, value: string|undefined): boolean|undefined {
   if ((value ?? "") === "") return undefined;
-  if (value === "1" || value === "true" || value === "yes") return true;
-  if (value === "0" || value === "false" || value === "no") return true;
+  if (value === "1" || value === "true" || value === "yes" || value === "y" || value === "Y") return true;
+  if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return true;
   replaceBodyWithError(`Invalid boolean in env: ${name}=${value}`, true);
 }
 const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
