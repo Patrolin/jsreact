@@ -2,10 +2,38 @@ import { jsx } from "./jsx-runtime";
 import type React from "react";
 
 // env
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const WHY_DID_YOU_RENDER_PREFIX = ".render.leaf.gc.parent.popper.instance"; // TODO: get these from env
-const INFINITE_LOOP_COUNT: number|null|undefined = null;
-const INFINITE_LOOP_PAUSE = true;
+/** Replace `document.body` with the `message` while avoiding XSS. */
+function replaceBodyWithError(message: string, throwError: boolean) {
+  for (let child of document.body.childNodes) child.remove();
+  const h3 = document.createElement("h3");
+  h3.className = "jsreact-error";
+  h3.style.fontFamily = "Consolas, sans-serif";
+  h3.style.whiteSpace = "pre-wrap";
+  h3.innerText = message;
+  document.body.append(h3);
+  if (throwError) throw new Error(message);
+}
+/** NOTE: bundler-agnostic env */
+const env = typeof import.meta !== "undefined" && import.meta.env
+  ? import.meta.env
+  : (typeof process !== "undefined" ? process.env : {});
+function mapEnvString<T>(value: string|undefined, mapping: (v: string|undefined) => T): T {return mapping(value)}
+function parseEnvNumber(name: string, value: string|undefined): number|undefined {
+  if ((value ?? "") === "") return undefined;
+  const number = parseInt(value ?? "");
+  if (!Number.isNaN(number)) return number;
+  replaceBodyWithError(`Invalid number in env: ${name}=${value}`, true);
+}
+function parseEnvBoolean(name: string, value: string|undefined): boolean|undefined {
+  if ((value ?? "") === "") return undefined;
+  if (value === "1" || value === "true" || value === "yes") return true;
+  if (value === "0" || value === "false" || value === "no") return true;
+  replaceBodyWithError(`Invalid boolean in env: ${name}=${value}`, true);
+}
+const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
+const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX, v => v ? `${v} ` : v);
+const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
+const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -45,7 +73,7 @@ type UntypedNamedExoticComponent<P = {}> = {
 }
 type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"] };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
-export const REACT_ELEMENT_TYPE = Symbol.for('react.element');
+export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
 export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
   $$typeof: symbol;
   key?: ReactElement["key"];
@@ -139,7 +167,7 @@ function makeExoticComponent<P = {}>(
 ): NamedExoticComponent<P> {
   if (render == null) {
     render = (props) => props.children;
-    Object.defineProperty(render, 'name', { value: '', configurable: true });
+    Object.defineProperty(render, "name", { value: "", configurable: true });
   }
   render.$$typeof = $$typeof;
   return render as NamedExoticComponent<P>;
@@ -228,7 +256,7 @@ type JsReactComponent = {
   prevHookIndex: number;
   /** implementation detail, also used by `useId()` */
   hookIndex: number;
-  /** hook state */
+  /** hook states */
   hooks: any[];
   /** the key that the component was rendered as */
   key: string;
@@ -627,14 +655,16 @@ let renderCount = 0;
 export function getRenderCount(): number {return renderCount}
 function rerender(component: JsReactComponent) {
   let whyDidYouRender: string|null = null;
-  if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
+  if (WHY_DID_YOU_RENDER_PREFIX != null) {
+    whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
+  }
   const rootComponent = component.root;
   const jsreact$render = async () => {
     try {
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
       if (whyDidYouRender != null) console.debug(whyDidYouRender);
       if (infiniteLoop) {
-        if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; // NOTE: the browser breaks if you debugger too quickly...
+        if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; // NOTE: the browser UI breaks if you debugger too quickly...
         else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
       };
       // render
@@ -664,7 +694,7 @@ function rerender(component: JsReactComponent) {
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
-        document.body.innerHTML = `<h3 class="jsreact-error" style="font-family: Consolas, sans-serif; white-space: pre-wrap">Uncaught ${message}</h3>`;
+        replaceBodyWithError(`Uncaught ${message}`, false);
       }
       throw error;
     }
@@ -719,9 +749,9 @@ export function createRoot(parent: HTMLElement) {
     console.log("ayaya.root", rootComponent);
     rerender(rootComponent);
     // set FLAGS_TAB_LOST_FOCUS
-    if (document.visibilityState === 'hidden') rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
+    if (document.visibilityState === "hidden") rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
     document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === 'hidden') rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
+      if (document.visibilityState === "hidden") rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
       else rootComponent.flags = rootComponent.flags & ~FLAGS_TAB_LOST_FOCUS;
   });
   }

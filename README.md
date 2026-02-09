@@ -5,6 +5,7 @@ A reimplementation of React that disallows multiple rerenders per frame.
 - [What we don't support](#what-we-dont-support-)
 - [Install](#install-)
 - [Usage](#usage-)
+  - [Environment variables](#environment-variables-)
 - [Benchmarks](#benchmarks-)
 - [Dev](#dev-)
 
@@ -133,7 +134,25 @@ TODO: make a benchmark with lots of MUI TextFields
     root.render(<App />);
     ```
 
-TODO: list env vars
+### Environment variables [⤴](#jsreact)
+  ```ts
+    /** Disable crashing the page when an exception is thrown during rendering,
+     * defaults to `process.env.NODE_ENV === "production"`. */
+    JSREACT_IS_PRODUCTION?: boolean|"";
+    /** If present, log why each render happened with this prefix
+     *  into the `Verbose` group via `console.debug()`. */
+    JSREACT_WHY_DID_YOU_RENDER_PREFIX?: string;
+    /** If number, throw an exception on the nth render
+     *  and all subsequent renders. */
+    JSREACT_INFINITE_LOOP_COUNT?: number|"";
+    /** If true, run a `debugger;` statement before the nth render
+     *  instead of throwing an exception. */
+    JSREACT_INFINITE_LOOP_PAUSE?: boolean|"";
+  ```
+  NOTE: In vite, you have to explicitly forward the env variables with:
+  ```json
+    envPrefix: ["VITE_", "JSREACT_"],
+  ```
 
 ## dev [⤴](#jsreact)
   - Run locally: `npm start`

@@ -56,6 +56,7 @@ function getVitePreset(mode: string): VitePreset {
 export default defineConfig(({mode}) => {
   const {plugins, aliases, tsConfig, excludeOptimizeDeps} = getVitePreset(mode);
   return {
+    envPrefix: ["VITE_", "JSREACT_"],
     plugins,
     resolve: { alias: aliases },
     esbuild: { tsconfigRaw: tsConfig },
