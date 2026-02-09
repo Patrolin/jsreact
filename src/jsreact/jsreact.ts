@@ -771,8 +771,8 @@ function rerender(component: JsReactComponent) {
       throw error;
     }
   };
-  const jsreact$renderLater = async () => {
-    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) await jsreact$renderNow();
+  const jsreact$renderLater = () => {
+    if ((rootComponent.flags & FLAGS_IS_RENDERING) === 0) jsreact$renderNow();
     else requestAnimationFrame(jsreact$renderLater); /* NOTE: If user code takes too long, retry next frame. */
   };
   if ((rootComponent.flags & FLAGS_WILL_RENDER) !== 0) return; /* somebody else will do the render */
