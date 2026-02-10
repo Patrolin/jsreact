@@ -391,7 +391,8 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
-      if (k.startsWith("--")) (element as HTMLElement).style.setProperty(k, v);
+      /* NOTE: pass through `--${string}` and `-${string}` directly, else add "px" to non-unitless numbers. */
+      if (k.startsWith("-")) (element as HTMLElement).style.setProperty(k, v);
       else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k] = v;
       else (element as HTMLElement).style[k] = (typeof v === "number" ? `${v}px` : v);
     }
