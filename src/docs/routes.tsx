@@ -1,7 +1,9 @@
 import { BigForm } from "./pages/benchmarks/BigForm";
 import { BooleanPage } from "./pages/tests/BooleanPage";
 import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
+import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
 import { MUI_ButtonPage } from "./pages/tests/MUI_ButtonPage";
+import { MUI_OutlinedInputPage } from "./pages/tests/MUI_OutlinedInput";
 import { MUI_PopperPage } from "./pages/tests/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/MUI_PortalPage";
 import { MUI_SliderPage } from "./pages/tests/MUI_SliderPage";
@@ -25,6 +27,11 @@ export const routes: Route[] = [
     path: "/componentClass",
     label: "React.Component class",
     component: ComponentClassPage,
+  },
+  {
+    path: "/memo",
+    label: "React.memo()",
+    component: MemoComponentPage,
   },
   {
     path: "/css-transition",
@@ -65,6 +72,11 @@ export const routes: Route[] = [
     path: "/slider",
     label: "MUI Slider",
     component: MUI_SliderPage,
+  },
+  {
+    path: "/outlinedInput",
+    label: "MUI OutlinedInput",
+    component: MUI_OutlinedInputPage,
   },
   {
     path: "/benchmarks/bigForm",

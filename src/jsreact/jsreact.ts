@@ -174,10 +174,17 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
   if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
 }
-/** TODO: maybe implement `arePropsEqual`? */
-export function memo(component: FC, _arePropsEqual?: (_a, _b: any) => boolean) {
-  if (_arePropsEqual) console.log("ayaya.memo", component, _arePropsEqual)
-  return component;
+const MEMO_SYMBOL = Symbol.for("react.memo");
+type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: any, b: any) => boolean};
+export function memo(component: FC, arePropsEqual?: (a: any, b: any) => boolean) {
+  if (component instanceof Component) {
+    console.warn("Not implemented: React.memo(ComponentClass)");
+    return component;
+  };
+  (component as MemoComponent).$$arePropsEqual = arePropsEqual ?? ((a: any, b: any): boolean => {
+    return Object.keys(a).some(k => Object.is(a[k], b[k])) || Object.keys(b).some(k => Object.is(a[k], b[k]));
+  })
+  return makeExoticComponent(MEMO_SYMBOL, component);
 }
 // Fragment
 function makeExoticComponent<P = {}>($$typeof: symbol, render?: UntypedNamedExoticComponent<PropsWithChildren<P>>): NamedExoticComponent<P> {
@@ -461,7 +468,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   let component = parent.children[key];
   if (component == null) {
     component = {
-      node: child,
+      node: undefined,
       element: undefined,
       legacyComponent: undefined,
       prevHookIndex: 0,
@@ -482,7 +489,6 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   component.flags = parent.flags & FLAGS_GC; /* NOTE: parent.flags can get set concurrently, so we need to filter them here */
   // run user code
   $component = component;
-  component.node = child;
   let leaf: ReactNodeSync = child;
   let desiredElementType = "";
   let context: Context<any> | undefined;
@@ -497,6 +503,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       // function
       const $$typeof = (leafType as NamedExoticComponent).$$typeof;
       switch ($$typeof) {
+      case MEMO_SYMBOL:
+        const prevNode = component.node as VNode|undefined;
+        if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props)) return;
       case CONTEXT_PROVIDER_SYMBOL:
       case CONTEXT_CONSUMER_SYMBOL:
       case FRAGMENT_SYMBOL:
@@ -590,6 +599,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       throw new Error(leafType);
     }
   }
+  component.node = child;
   // assert number of hooks is constant
   const {prevHookIndex, hookIndex} = component;
   if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
@@ -925,7 +935,7 @@ export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newV
   return [hook.state, hook.setState];
 }
 function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | null | undefined): boolean {
-  // NOTE: `Object.is()` for correct NaN handling
+  /* NOTE: `Object.is()` for correct NaN handling */
   return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
 }
 const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
