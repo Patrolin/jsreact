@@ -308,7 +308,7 @@ function _printFlags(flags: number) {
   return `{${acc.join(", ")}}`;
 };
 void _printFlags; /* disable unused warning */
-// apply intrinsic props
+// apply DOM props
 function setFromHereString(str: string, splitChar = "\n"): Set<string> {return new Set(str.trim().split(splitChar))}
 const PASSIVE_EVENTS = setFromHereString(`touchstart,touchmove,wheel`, ',');
 const UNITLESS_CSS_PROPS = setFromHereString(`
