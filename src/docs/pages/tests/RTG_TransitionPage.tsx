@@ -16,7 +16,7 @@ function getStyle(state: TransitionStatus): CSSProperties {
     ...transition,
   };
 }
-export function TransitionDemo() {
+export function RTG_TransitionPage() {
   const [show, setShow] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   return (

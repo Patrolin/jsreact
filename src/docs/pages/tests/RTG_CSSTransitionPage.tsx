@@ -1,7 +1,7 @@
 import { CSSTransition } from "react-transition-group";
 import { useState } from "react";
 
-export function CSSTransitionDemo() {
+export function RTG_CSSTransitionPage() {
   const [show, setShow] = useState(false);
   return (
     <div>

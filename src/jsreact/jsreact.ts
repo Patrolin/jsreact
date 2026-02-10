@@ -271,7 +271,7 @@ type JsReactComponent = {
   /** user input */
   node: ValueOrVNode;
   /** HTML element derived from user input */
-  element: Element | undefined;
+  element: Element | SVGElement | undefined;
   /** implementation detail */
   legacyComponent: ComponentClass<any, any> | RootHooks | undefined;
   /** implementation detail */
@@ -287,7 +287,7 @@ type JsReactComponent = {
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
   children: Record<string, JsReactComponent>;
   /** implementation detail */
-  prevEventHandlers: Record<string, ((event: any) => void) | undefined>;
+  prevEventHandlers: Record<string, ((event: any) => void) | null | undefined>;
   /** implementation detail */
   root: JsReactComponent;
   /** implementation detail */
@@ -361,9 +361,23 @@ webkitLineClamp
 widows
 zIndex
 `);
-function applyDOMProps(component: JsReactComponent, props: DOMProps) {
-  const {element, prevEventHandlers} = component;
-  if (element == null) return;
+type ReactEvent = Event & {nativeEvent: Event};
+function makeReactEventHandler(callback: ((event: Event) => void) | null | undefined): ((event: ReactEvent) => void) | null | undefined {
+  if (callback == null) return callback;
+  return (event: ReactEvent) => {
+    event.nativeEvent = event;
+    callback(event);
+  }
+}
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+function applyDOMProps(component: JsReactComponent, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
+  const {prevEventHandlers} = component;
+  let element = component.element;
+  if (element == null) {
+    if (isSvgElement) element = document.createElementNS(SVG_NAMESPACE, desiredElementType);
+    else element = document.createElement(desiredElementType);
+    component.element = element;
+  }
   // style
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
@@ -374,13 +388,17 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
     }
   }
   // className
-  if (className) element.className = Array.isArray(className) ? className.join(" ") : className;
+  const newClassString = Array.isArray(className) ? className.join(" ") : className ?? "";
+  if (newClassString !== element.getAttribute("class")) { /* NOTE: SVG elements require getAttribute()... */
+    if (newClassString) element.setAttribute("class", newClassString);
+    else element.removeAttribute("class");
+  }
   // attributes/events
   for (let [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
       const type = key.slice(2).toLowerCase();
       const prevEventHandler = prevEventHandlers[type];
-      const eventHandler = props[key];
+      const eventHandler = makeReactEventHandler(props[key]);
       prevEventHandlers[type] = eventHandler;
       if (prevEventHandler != null) element.removeEventListener(type, prevEventHandler);
       if (eventHandler != null) element.addEventListener(type, eventHandler, { passive: PASSIVE_EVENTS.has(type) });
@@ -389,7 +407,8 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
       else element.removeAttribute(key);
     }
   }
-  if (htmlFor) element.setAttribute("for", htmlFor);
+  if (htmlFor != null) element.setAttribute("for", htmlFor);
+  else element.removeAttribute("for");
 }
 
 // render
@@ -400,10 +419,10 @@ function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
   if (typeof ref === "function") ref(value);
   else if (ref) ref.current = value;
 }
-function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[]) {
+function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[], parentIsSvgElement: boolean) {
   // recurse
   if (isIterable(child)) {
-    for (let c of child) jsreact$renderJsxChildren(parent, c as ReactNodeSync, childOrder);
+    for (let c of child) jsreact$renderJsxChildren(parent, c as ReactNodeSync, childOrder, parentIsSvgElement);
     return;
   }
   // get component state
@@ -596,8 +615,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       if (element.textContent !== newText) element.textContent = newText;
       childOrder.push(component);
     } else {
-      if (isElementNew) component.element = document.createElement(desiredElementType);
-      applyDOMProps(component, (leaf as VNode).props);
+      const isSvgElement = parentIsSvgElement || desiredElementType === "svg";
+      applyDOMProps(component, desiredElementType, (leaf as VNode).props, isSvgElement);
+      parentIsSvgElement = isSvgElement && (desiredElementType !== "foreignObject");
       if (isElementNew) setRef((child as VNode).props.ref, component.element);
       childOrder.push(component);
       childOrder = [];
@@ -606,11 +626,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   // render children
   const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
   //console.log("ayaya.leaf", {key, children});
-  jsreact$renderChildren(component, children, childOrder);
+  jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
   if (context != null) context._currentValue = prevContextValue;
 }
-function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[]) {
-  if (children != null) jsreact$renderJsxChildren(parent, children, childOrder);
+function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSync, childOrder: JsReactComponent[], parentIsSvgElement: boolean) {
+  if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement);
   unmountUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
@@ -740,7 +760,7 @@ function rerender(component: JsReactComponent) {
       rootComponent.childIndex = 0;
       rootComponent.hookIndex = 0;
       rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RERENDER) | FLAGS_IS_RENDERING;
-      await jsreact$renderChildren(rootComponent, rootComponent.node, []);
+      await jsreact$renderChildren(rootComponent, rootComponent.node, [], false);
       // run pending effects
       const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
       (rootComponent.legacyComponent as RootHooks) = {
@@ -748,7 +768,6 @@ function rerender(component: JsReactComponent) {
         legacySetStateCallbacks: [],
         useLayoutEffects: [],
       }
-      console.log({legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects});
       for (let hook of legacyComponentUpdates) hook.callback();
       for (let hook of legacySetStateCallbacks) hook.callback();
       for (let hook of useLayoutEffects) {

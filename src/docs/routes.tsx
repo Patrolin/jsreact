@@ -1,11 +1,14 @@
-import { PopperDemo } from "./demos/PopperDemo";
-import { PortalDemo } from "./demos/PortalDemo";
-import { BooleanDemo } from "./demos/BooleanDemo";
-import { ComponentClassDemo } from "./demos/ComponentClassDemo";
-import { TooltipDemo } from "./demos/TooltipDemo";
-import { ButtonDemo } from "./demos/ButtonDemo";
-import { CSSTransitionDemo } from "./demos/CSSTransitionDemo";
-import { TransitionDemo } from "./demos/TransitionDemo";
+import { BigForm } from "./pages/benchmarks/BigForm";
+import { BooleanPage } from "./pages/tests/BooleanPage";
+import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
+import { MUI_ButtonPage } from "./pages/tests/MUI_ButtonPage";
+import { MUI_PopperPage } from "./pages/tests/MUI_PopperPage";
+import { MUI_PortalPage } from "./pages/tests/MUI_PortalPage";
+import { MUI_SliderPage } from "./pages/tests/MUI_SliderPage";
+import { MUI_SwitchPage } from "./pages/tests/MUI_SwitchPage";
+import { MUI_TooltipPage } from "./pages/tests/MUI_TooltipPage";
+import { RTG_CSSTransitionPage } from "./pages/tests/RTG_CSSTransitionPage";
+import { RTG_TransitionPage } from "./pages/tests/RTG_TransitionPage";
 
 type Route = {
   path: string;
@@ -16,41 +19,56 @@ export const routes: Route[] = [
   {
     path: "/boolean",
     label: "Boolean",
-    component: BooleanDemo,
+    component: BooleanPage,
   },
   {
     path: "/componentClass",
     label: "React.Component class",
-    component: ComponentClassDemo,
-  },
-  {
-    path: "/portal",
-    label: "MUI Portal",
-    component: PortalDemo,
-  },
-  {
-    path: "/popper",
-    label: "MUI Popper",
-    component: PopperDemo,
+    component: ComponentClassPage,
   },
   {
     path: "/css-transition",
     label: "react-transition-group CSSTransition",
-    component: CSSTransitionDemo,
+    component: RTG_CSSTransitionPage,
   },
   {
     path: "/transition",
     label: "react-transition-group Transition",
-    component: TransitionDemo,
+    component: RTG_TransitionPage,
+  },
+  {
+    path: "/portal",
+    label: "MUI Portal",
+    component: MUI_PortalPage,
+  },
+  {
+    path: "/popper",
+    label: "MUI Popper",
+    component: MUI_PopperPage,
   },
   {
     path: "/tooltip",
     label: "MUI Tooltip",
-    component: TooltipDemo,
+    component: MUI_TooltipPage,
   },
   {
     path: "/button",
     label: "MUI Button",
-    component: ButtonDemo,
+    component: MUI_ButtonPage,
+  },
+  {
+    path: "/switch",
+    label: "MUI Switch",
+    component: MUI_SwitchPage,
+  },
+  {
+    path: "/slider",
+    label: "MUI Slider",
+    component: MUI_SliderPage,
+  },
+  {
+    path: "/benchmarks/bigForm",
+    label: "Big form",
+    component: BigForm,
   },
 ];

@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { Portal } from "@mui/material";
 //import Portal from "../mock/Portal";
 
-export const PortalDemo: FC = () => {
+export const MUI_PortalPage: FC = () => {
   const [show, setShow] = React.useState(false);
   const container = React.useRef(null);
   return (

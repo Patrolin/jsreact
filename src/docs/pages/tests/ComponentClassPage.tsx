@@ -10,9 +10,6 @@ if (timelineName === "development") {
   timelineName = "jsreact";
 }
 const timeline = { lines: [`-- ${timelineName} timeline --`] };
-requestAnimationFrame(() => {
-  setTimeout(() => console.log(timeline.lines.join("\n")), 1000);
-});
 
 // MyComponentClass
 type Props = { name: string };
@@ -41,7 +38,10 @@ class MyComponentClass extends React.Component<Props> {
 }
 
 // ComponentClassDemo
-export const ComponentClassDemo: FC = () => {
+export const ComponentClassPage: FC = () => {
+  requestAnimationFrame(() => {
+    setTimeout(() => console.log(timeline.lines.join("\n")), 1000);
+  });
   return (
     <MyContext value="321">
       <MyComponentClass name="foo" />

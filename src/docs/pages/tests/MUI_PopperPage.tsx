@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { Popper } from "@mui/material";
 //import Popper from "../mock/Popper/Popper";
 
-export const PopperDemo: FC = () => {
+export const MUI_PopperPage: FC = () => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
