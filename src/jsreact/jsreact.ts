@@ -389,9 +389,7 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
       else element.removeAttribute(key);
     }
   }
-  if (htmlFor) {
-    element.setAttribute("for", htmlFor);
-  }
+  if (htmlFor) element.setAttribute("for", htmlFor);
 }
 
 // render
