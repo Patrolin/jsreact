@@ -361,11 +361,20 @@ webkitLineClamp
 widows
 zIndex
 `);
-type ReactEvent = Event & {nativeEvent: Event};
-function makeReactEventHandler(callback: ((event: Event) => void) | null | undefined): ((event: ReactEvent) => void) | null | undefined {
+type EventHandler<T = Event> = ((event: T, ...args: any[]) => void) | null | undefined;
+type SyntheticEvent = Event & {
+  nativeEvent: Event;
+  isDefaultPrevented: () => boolean;
+  isPropagationStopped: () => boolean;
+  persist: () => void;
+  isPersistent: () => boolean;
+};
+function makeReactEventHandler(callback: EventHandler): EventHandler<SyntheticEvent> {
   if (callback == null) return callback;
-  return (event: ReactEvent) => {
+  return (event: SyntheticEvent) => {
     event.nativeEvent = event;
+    event.isDefaultPrevented = () => event.defaultPrevented;
+    event.isPropagationStopped = () => event.cancelBubble ?? false;
     callback(event);
   }
 }
