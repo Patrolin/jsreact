@@ -506,7 +506,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       case MEMO_SYMBOL:
         const prevNode = component.node as VNode|undefined;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
-          return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set the gc flags */
+          return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
       case CONTEXT_PROVIDER_SYMBOL:
       case CONTEXT_CONSUMER_SYMBOL:
