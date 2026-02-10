@@ -311,52 +311,56 @@ void _printFlags; /* disable unused warning */
 // apply intrinsic props
 function setFromHereString(str: string, splitChar = "\n"): Set<string> {return new Set(str.trim().split(splitChar))}
 const PASSIVE_EVENTS = setFromHereString(`touchstart,touchmove,wheel`, ',');
-const UNITLESS_CSS = setFromHereString(`
+const UNITLESS_CSS_PROPS = setFromHereString(`
+animation
 animationIterationCount
-aspectRatio
-borderImageOutset
-borderImageSlice
-borderImageWidth
 boxFlex
 boxFlexGroup
 boxOrdinalGroup
 columnCount
 columns
+fillOpacity
 flex
 flexGrow
-flexPositive
 flexShrink
-flexNegative
-flexOrder
+floodOpacity
+fontSizeAdjust
+fontVariationSettings
 gridArea
-gridRow
-gridRowEnd
-gridRowSpan
-gridRowStart
 gridColumn
 gridColumnEnd
-gridColumnSpan
 gridColumnStart
-fontWeight
+gridRow
+gridRowEnd
+gridRowStart
+hyphenateLimitChars
+initialLetter
 lineClamp
 lineHeight
+mathDepth
+maxLines
+MsHyphenateLimitChars
+msHyphenateLimitChars
+MsHyphenateLimitLines
+msHyphenateLimitLines
 opacity
 order
 orphans
+readingOrder
 scale
-tabSize
-widows
-zIndex
-zoom
-fillOpacity
-floodOpacity
+shapeImageThreshold
 stopOpacity
 strokeDasharray
 strokeDashoffset
 strokeMiterlimit
 strokeOpacity
 strokeWidth
-`); /* TODO: get a better list of unitless quantities... */
+tabSize
+WebkitLineClamp
+webkitLineClamp
+widows
+zIndex
+`);
 function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   const {element, prevEventHandlers} = component;
   if (element == null) return;
@@ -365,7 +369,7 @@ function applyDOMProps(component: JsReactComponent, props: DOMProps) {
   if (style != null) {
     for (let [k, v] of Object.entries(style)) {
       if (k.startsWith("--")) (element as HTMLElement).style.setProperty(k, v);
-      else if (UNITLESS_CSS.has(k)) (element as HTMLElement).style[k] = v;
+      else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k] = v;
       else (element as HTMLElement).style[k] = (typeof v === "number" ? `${v}px` : v);
     }
   }
