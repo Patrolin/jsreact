@@ -572,6 +572,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       default: {
         throw new Error(String($$typeof));
       }}
+      if (leaf instanceof Promise) {throw new Error("Promise<ReactNode> is not supported yet.")}
     } else if (typeof leafType === "string") {
       // HTML element
       desiredElementType = leafType;
@@ -782,7 +783,7 @@ function rerender(component: JsReactComponent) {
       // print debug info
       const renderMs = performance.now() - renderStartMs;
       const tabHasFocus = (rootComponent.flags & FLAGS_TAB_LOST_FOCUS) === 0;
-      if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs} ms.`);
+      if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs.toFixed(0)} ms.`);
     } catch (error) {
       if (!IS_PRODUCTION) {
         let message = error;
