@@ -566,7 +566,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       case PORTAL_SYMBOL: {
         const portal = leaf as Portal;
         leaf = portal.children as ReactNodeSync;
-        component.element = portal.props as Element;
+        component.element = portal.props as Element; /* NOTE: I don't think anyone is portaling into an svg element here */
         childOrder = [];
       } break;
       default: {
