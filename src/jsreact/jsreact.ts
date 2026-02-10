@@ -175,13 +175,13 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
   return vnode;
 }
 const MEMO_SYMBOL = Symbol.for("react.memo");
-type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: any, b: any) => boolean};
-export function memo(component: FC, arePropsEqual?: (a: any, b: any) => boolean) {
+type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
+export function memo(component: FC, arePropsEqual?: (a: object, b: object) => boolean) {
   if (component instanceof Component) {
     console.warn("Not implemented: React.memo(ComponentClass)");
     return component;
   };
-  (component as MemoComponent).$$arePropsEqual = arePropsEqual ?? ((a: any, b: any): boolean => {
+  (component as MemoComponent).$$arePropsEqual = arePropsEqual ?? ((a: object, b: object): boolean => {
     return Object.keys(a).some(k => Object.is(a[k], b[k])) || Object.keys(b).some(k => Object.is(a[k], b[k]));
   })
   return makeExoticComponent(MEMO_SYMBOL, component);
@@ -505,7 +505,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       switch ($$typeof) {
       case MEMO_SYMBOL:
         const prevNode = component.node as VNode|undefined;
-        if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props)) return;
+        if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) return;
       case CONTEXT_PROVIDER_SYMBOL:
       case CONTEXT_CONSUMER_SYMBOL:
       case FRAGMENT_SYMBOL:
@@ -539,13 +539,13 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
               throw `Not implemented: Component.${key}`;
             }
           }
-          // confusion ending
+          // get prevState
           const prevProps = instance.props;
           const prevState = instance.state;
+          // get next state
           const stateRef = useRef(prevState ?? {});
           instance.props = instanceProps;
           instance.state = stateRef.current;
-          const {componentDidMount, componentDidUpdate, componentWillUnmount} = instance;
           // getDerivedStateFromProps()
           if (getDerivedStateFromProps != null) {
             const diff = getDerivedStateFromProps(instance.props, stateRef.current);
@@ -555,10 +555,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           const snapshot = undefined;
           // componentDidMount(), componentDidUpdate()
           useLegacyComponentUpdate(() => {
-            if (instanceIsNew) componentDidMount?.call(instance);
-            else componentDidUpdate?.call(instance, prevProps, prevState, snapshot);
+            if (instanceIsNew) instance.componentDidMount?.();
+            else instance.componentDidUpdate?.(prevProps, prevState, snapshot);
           });
           // render
+          instance.forceUpdate = () => {rerender(component)};
           instance.setState = (newState, callback) => {
             const state = stateRef.current;
             let diff = newState;
@@ -570,11 +571,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
             }
             useLegacySetStateCallback(callback);
           };
-          instance.forceUpdate = () => {rerender(component)};
           leaf = instance.render() as ReactNodeSync;
           // componentWillUnmount()
-          useLegacyWillUnmount(componentWillUnmount);
+          useLegacyWillUnmount(instance.componentWillUnmount);
         } else {
+          // FunctionComponent
           leaf = (leafType as FunctionComponent)(leaf.props as JsxProps);
         }
       } break;
@@ -593,8 +594,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       }}
       if (leaf instanceof Promise) {throw new Error("Promise<ReactNode> is not supported yet.")}
     } else if (typeof leafType === "string") {
-      // HTML element
-      desiredElementType = leafType;
+      desiredElementType = leafType; /* HTML or SVG element */
     } else {
       throw new Error(leafType);
     }
@@ -898,8 +898,8 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   return $component.hooks[index];
 }
 const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
-type UseLegacyWillUnmount = Hook<{ callback: (() => void) | undefined | null }>;
-export function useLegacyWillUnmount(callback: (() => void) | undefined | null) {
+type UseLegacyWillUnmount = Hook<{ callback: ((this: ComponentClass) => void) | undefined | null }>;
+export function useLegacyWillUnmount(callback: ((this: ComponentClass) => void) | undefined | null) {
   const hook = useHook<UseLegacyWillUnmount>({ $$typeof: USE_LEGACY_WILL_UNMOUNT_SYMBOL, callback });
   hook.callback = callback;
 }
