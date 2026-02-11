@@ -1,6 +1,7 @@
 import { CSSTransition } from "react-transition-group";
 import { useState } from "react";
 
+// TODO: What is the correct behavior here???
 export function RTG_CSSTransitionPage() {
   const [show, setShow] = useState(false);
   return (
