@@ -1,7 +1,7 @@
 import { CSSTransition } from "react-transition-group";
 import { useState } from "react";
 
-// TODO: What is the correct behavior here???
+/** NOTE: this should produce `class="fade-enter fade-enter-active"` */
 export function RTG_CSSTransitionPage() {
   const [show, setShow] = useState(false);
   return (

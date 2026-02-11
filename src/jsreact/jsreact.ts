@@ -277,27 +277,27 @@ export const Children = {
 type JsReactComponent = {
   /** user input */
   node: ValueOrVNode;
-  /** HTML element derived from user input */
+  /** the HTML or SVG element derived from JSX */
   element: Element | SVGElement | undefined;
-  /** implementation detail */
+  /** used to implement ComponentClass */
   legacyComponent: ComponentClass<any, any> | RootHooks | undefined;
-  /** implementation detail */
+  /** used to catch errors */
   prevHookIndex: number;
-  /** implementation detail, also used by `useId()` */
+  /** used by `useId()` on RootComponent, else used to catch errors */
   hookIndex: number;
-  /** hook states */
-  hooks: any[];
+  /** `prevClassNames: string[]` for ElementComponent, else `hooks: Hook[]` */
+  hooks: Hook[] | string[];
   /** the key that the component was rendered as */
   key: string;
-  /** implementation detail */
+  /** used to generate default keys for children */
   childIndex: number;
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
   children: Record<string, JsReactComponent>;
-  /** implementation detail */
+  /** used to implement HTML event listeners */
   prevEventHandlers: Record<string, ((event: any) => void) | null | undefined>;
-  /** implementation detail */
+  /** used to implement hooks and rerender() */
   root: JsReactComponent;
-  /** implementation detail */
+  /** used to implement rerender() */
   flags: number;
 };
 const FLAGS_TAB_LOST_FOCUS = 16;
@@ -405,11 +405,14 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
     }
   }
   // className
-  const newClassString = Array.isArray(className) ? className.join(" ") : className ?? "";
-  if (newClassString !== element.getAttribute("class")) { /* NOTE: SVG elements require getAttribute()... */
-    if (newClassString) element.setAttribute("class", newClassString);
-    else element.removeAttribute("class");
+  const prevClassList = component.hooks as string[];
+  const newClassList = Array.isArray(className) ? className : (className ? className.split(" ") : []);
+  for (let newClass of newClassList) element.classList.add(newClass);
+  const newClassList_set = new Set(newClassList);
+  for (let prevClass of prevClassList) {
+    if (!newClassList_set.has(prevClass)) element.classList.remove(prevClass);
   }
+  component.hooks = newClassList;
   // attributes/events
   for (let [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
@@ -595,6 +598,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
         throw new Error(String($$typeof));
       }}
       if (leaf instanceof Promise) {throw new Error("Promise<ReactNode> is not supported yet.")}
+      // assert number of hooks is constant
+      const {prevHookIndex, hookIndex} = component;
+      if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
+        throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
+      }
     } else if (typeof leafType === "string") {
       desiredElementType = leafType; /* HTML or SVG element */
     } else {
@@ -602,11 +610,6 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     }
   }
   component.node = child;
-  // assert number of hooks is constant
-  const {prevHookIndex, hookIndex} = component;
-  if (prevHookIndex !== 0 && hookIndex !== prevHookIndex) {
-    throw new RangeError(`Components must have a constant number of hooks, got: ${hookIndex}, expected: ${prevHookIndex}`);
-  }
   if (desiredElementType) {
     const currentElement = component.element;
     // assert don't need key prop
@@ -634,8 +637,8 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       } else {
         element = component.element as unknown as Text;
       }
-      const newText = String(leaf)
-      if (element.textContent !== newText) element.textContent = newText;
+      const newText = String(leaf);
+      if (newText !== element.textContent) element.textContent = newText;
       childOrder.push(component);
     } else {
       const isSvgElement = parentIsSvgElement || desiredElementType === "svg";
@@ -683,7 +686,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
       //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
       delete parent.children[component.key]; /* delete old state */
       // run cleanup code
-      for (let hook of component.hooks) {
+      for (let hook of component.hooks as Hook[]) {
         const hookType = hook.$$typeof;
         switch (hookType) {
         case undefined: {} break;
@@ -889,18 +892,19 @@ function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
     rootHooks.legacySetStateCallbacks.push({ callback });
   }
 }
-type Hook<T = {}> = T & {$$typeof: symbol};
+type Hook = { $$typeof?: symbol };
+type NamedHook<T = {}> = T & Required<Hook>;
 export const useRerender = () => () => rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
-    if ($component.prevHookIndex === 0) $component.hooks.push(defaultState);
+    if ($component.prevHookIndex === 0) ($component.hooks as Hook[]).push(defaultState);
     else throw new RangeError(`Components must have a constant number of hooks, got: ${$component.hookIndex}, expected: ${$component.prevHookIndex}`);
   }
-  return $component.hooks[index];
+  return $component.hooks[index] as T;
 }
 const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
-type UseLegacyWillUnmount = Hook<{ callback: ((this: ComponentClass) => void) | undefined | null }>;
+type UseLegacyWillUnmount = NamedHook<{ callback: ((this: ComponentClass) => void) | undefined | null }>;
 export function useLegacyWillUnmount(callback: ((this: ComponentClass) => void) | undefined | null) {
   const hook = useHook<UseLegacyWillUnmount>({ $$typeof: USE_LEGACY_WILL_UNMOUNT_SYMBOL, callback });
   hook.callback = callback;
@@ -942,7 +946,7 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
 }
 const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
 type UseEffectSetup = () => (() => void) | null | undefined | void;
-type UseEffect = Hook<{
+type UseEffect = NamedHook<{
   cleanup: (() => void) | null | undefined | void;
   prevDeps: any[] | null;
 }>
@@ -958,7 +962,7 @@ export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
   }
 }
 const USE_LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
-type UseLayoutEffect = Hook<UseEffect & {setup: UseEffectSetup}>
+type UseLayoutEffect = NamedHook<UseEffect & {setup: UseEffectSetup}>
 /** Run setup() after layout of this render */
 export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
   const hook = useHook<UseLayoutEffect>({ $$typeof: USE_LAYOUT_EFFECT_SYMBOL, setup, cleanup: null, prevDeps: null });
@@ -969,16 +973,16 @@ export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
     rootHooks.useLayoutEffects.push(hook);
   }
 }
-export function useMemo<T>(callback: () => T, dependencies?: any[]): T {
-  const hook = useHook({ current: null as T, prevDeps: null as any[] | null });
+export function useMemo<T, D = any>(callback: () => T, dependencies?: D[]): T {
+  const hook = useHook({ current: null as T, prevDeps: null as D[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     hook.current = callback();
   }
   return hook.current;
 }
-export function useCallback<T extends Function>(callback: T, dependencies?: any[]) {
-  const hook = useHook({ current: callback, prevDeps: null as any[] | null });
+export function useCallback<T extends Function, D = any>(callback: T, dependencies?: D[]) {
+  const hook = useHook({ current: callback, prevDeps: null as D[] | null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     hook.current = callback;
