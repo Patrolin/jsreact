@@ -155,13 +155,7 @@ TODO: make a benchmark with lots of MUI TextFields
   ```ts
     <div style={{ "--foo": "1px" }} />
   ```
-  NOTE: Currently there is [a bug](https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/74499) in `@types/react`, so you also have to create a `src/types/react-css-vars.d.ts` with:
-  ```ts
-  import "react";
-  declare module "react" {
-    interface CSSProperties { [key: `--${string}`]: string|number|undefined|null }
-  }
-  ```
+  NOTE: In React these also work, but you have to [override the type yourself](https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/74499).
 
 ### Environment variables [⤴](#jsreact)
   ```ts
