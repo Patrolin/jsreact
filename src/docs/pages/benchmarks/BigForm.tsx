@@ -8,7 +8,7 @@ export const BigForm: FC = () => {
       .fill(undefined)
       .map((_) => "")
   );
-  return Array(120)
+  return Array(TEXT_FIELD_COUNT)
     .fill(undefined)
     .map((_, i) => {
       const value = values[i];

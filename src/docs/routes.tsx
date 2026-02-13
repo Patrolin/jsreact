@@ -1,4 +1,5 @@
 import { BigForm } from "./pages/benchmarks/BigForm";
+import { BigFormWithMemo } from "./pages/benchmarks/BigFormWithMemo";
 import { BooleanPage } from "./pages/tests/BooleanPage";
 import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
 import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
@@ -82,5 +83,10 @@ export const routes: Route[] = [
     path: "/benchmarks/bigForm",
     label: "Big form",
     component: BigForm,
+  },
+  {
+    path: "/benchmarks/bigFormWithMemo",
+    label: "Big form with memo()",
+    component: BigFormWithMemo,
   },
 ];
