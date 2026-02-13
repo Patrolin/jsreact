@@ -14,7 +14,6 @@ const MyContext = React.createContext(0);
 /** Test showing/hiding a Fragment component */
 export const BooleanPage: FC = () => {
   const [state, setState] = useState(0);
-  console.log("button!!!");
   return (
     <div>
       {state % 3 !== 0 && (
