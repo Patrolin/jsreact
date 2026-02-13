@@ -1,5 +1,5 @@
 import { TextField } from "@mui/material";
-import { ChangeEvent, FC, useState } from "react";
+import { FC, InputEvent, useState } from "react";
 
 const TEXT_FIELD_COUNT = 120;
 export const BigForm: FC = () => {
@@ -12,11 +12,11 @@ export const BigForm: FC = () => {
     .fill(undefined)
     .map((_, i) => {
       const value = values[i];
-      const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+      const onChange = (event: InputEvent<HTMLInputElement>) => {
         const newValues = [...values];
-        newValues[i] = event.target.value;
+        newValues[i] = (event.target as HTMLInputElement).value;
         setValues(newValues);
       };
-      return <TextField style={{ marginTop: 8 }} label={`Text ${i + 1}`} variant="outlined" value={value} onChange={onChange} />;
+      return <TextField style={{ marginTop: 8 }} label={`Text ${i + 1}`} variant="outlined" value={value} onInput={onChange} />;
     });
 };
