@@ -62,5 +62,9 @@ export default defineConfig(({mode}) => {
     esbuild: { tsconfigRaw: tsConfig },
     optimizeDeps: { exclude: excludeOptimizeDeps },
     server: { port: 3000, strictPort: true },
+    define: {
+      // support for mock/mui-material
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+    }
   }
 });

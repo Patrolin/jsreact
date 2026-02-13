@@ -294,11 +294,15 @@ type JsReactComponent = {
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
   children: Record<string, JsReactComponent>;
   /** used to implement HTML event listeners */
-  prevEventHandlers: Record<string, ((event: any) => void) | null | undefined>;
+  prevEventHandlers: Record<string, PrevEventHandler|undefined>;
   /** used to implement hooks and rerender() */
   root: JsReactComponent;
   /** used to implement rerender() */
   flags: number;
+};
+type PrevEventHandler = {
+  raw: ((event: any) => void) | null | undefined;
+  react: ((event: any) => void) | null | undefined;
 };
 const FLAGS_TAB_LOST_FOCUS = 16;
 const FLAGS_RERENDERED_THIS_FRAME = 8;
@@ -318,6 +322,32 @@ void _printFlags; /* disable unused warning */
 // apply DOM props
 function setFromHereString(str: string, splitChar = "\n"): Set<string> {return new Set(str.trim().split(splitChar))}
 const PASSIVE_EVENTS = setFromHereString(`touchstart,touchmove,wheel`, ',');
+const HTML_BOOLEAN_ATTRIBUTES = setFromHereString(`
+hidden
+inert
+disabled
+readonly
+required
+checked
+multiple
+selected
+autofocus
+formnovalidate
+autoplay
+controls
+loop
+muted
+playsinline
+open
+async
+defer
+nomodule
+reversed
+allowfullscreen
+itemscope
+default
+ismap
+`);
 const UNITLESS_CSS_PROPS = setFromHereString(`
 animation
 animationIterationCount
@@ -418,13 +448,24 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
     if (key.startsWith("on") && key.length > 2) {
       const type = key.slice(2).toLowerCase();
       const prevEventHandler = prevEventHandlers[type];
-      const eventHandler = makeReactEventHandler(props[key]);
-      prevEventHandlers[type] = eventHandler;
-      if (prevEventHandler != null) element.removeEventListener(type, prevEventHandler);
-      if (eventHandler != null) element.addEventListener(type, eventHandler, { passive: PASSIVE_EVENTS.has(type) });
+      const rawEventHandler = props[key];
+      const reactEventHandler = makeReactEventHandler(rawEventHandler);
+      prevEventHandlers[type] = {raw: rawEventHandler, react: reactEventHandler};
+      if (prevEventHandler?.raw == rawEventHandler) continue;
+      if (prevEventHandler?.react != null) element.removeEventListener(type, prevEventHandler.react);
+      if (reactEventHandler != null) {
+        element.addEventListener(type, reactEventHandler, { passive: PASSIVE_EVENTS.has(type) });
+      }
     } else {
-      if (value != null) element.setAttribute(key, String(value ?? ""));
-      else element.removeAttribute(key);
+      if (HTML_BOOLEAN_ATTRIBUTES.has(key)) {
+        /* NOTE: considered true if present with any value */
+        if (value) element.setAttribute(key, String(value ?? ""));
+        else element.removeAttribute(key);
+      } else {
+        /* NOTE: considered true if the value is set to "true" */
+        if (value != null) element.setAttribute(key, String(value ?? ""));
+        else element.removeAttribute(key);
+      }
     }
   }
   if (htmlFor != null) element.setAttribute("for", htmlFor);
@@ -855,7 +896,7 @@ export function createRoot(parent: HTMLElement) {
       flags: 0,
     };
     rootComponent.root = rootComponent;
-    console.log("ayaya.root", rootComponent);
+    //console.log("ayaya.root", rootComponent);
     rerender(rootComponent);
     // set FLAGS_TAB_LOST_FOCUS
     if (document.visibilityState === "hidden") rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
