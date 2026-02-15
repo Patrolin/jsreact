@@ -3,15 +3,16 @@ import { BigFormWithMemo } from "./pages/benchmarks/BigFormWithMemo";
 import { BooleanPage } from "./pages/tests/BooleanPage";
 import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
 import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
-import { MUI_ButtonPage } from "./pages/tests/MUI_ButtonPage";
-import { MUI_OutlinedInputPage } from "./pages/tests/MUI_OutlinedInput";
-import { MUI_PopperPage } from "./pages/tests/MUI_PopperPage";
-import { MUI_PortalPage } from "./pages/tests/MUI_PortalPage";
-import { MUI_SliderPage } from "./pages/tests/MUI_SliderPage";
-import { MUI_SwitchPage } from "./pages/tests/MUI_SwitchPage";
-import { MUI_TooltipPage } from "./pages/tests/MUI_TooltipPage";
-import { RTG_CSSTransitionPage } from "./pages/tests/RTG_CSSTransitionPage";
-import { RTG_TransitionPage } from "./pages/tests/RTG_TransitionPage";
+import { MUI_ButtonPage } from "./pages/tests/mui/MUI_ButtonPage";
+import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInput";
+import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
+import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
+import { MUI_SliderPage } from "./pages/tests/mui/MUI_SliderPage";
+import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
+import { MUI_TooltipPage } from "./pages/tests/mui/MUI_TooltipPage";
+import { RTG_CSSTransitionPage } from "./pages/tests/rtg/RTG_CSSTransitionPage";
+import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
+import { SubmitTest } from "./pages/tests/SubmitTest";
 
 type Route = {
   path: string;
@@ -23,6 +24,11 @@ export const routes: Route[] = [
     path: "/boolean",
     label: "Boolean",
     component: BooleanPage,
+  },
+  {
+    path: "/submit",
+    label: "Submit",
+    component: SubmitTest,
   },
   {
     path: "/componentClass",

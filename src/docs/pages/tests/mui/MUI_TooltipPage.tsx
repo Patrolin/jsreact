@@ -1,5 +1,5 @@
 import { FC } from "react";
-import Tooltip from "../../mock/Tooltip/Tooltip";
+import Tooltip from "../../../mock/Tooltip/Tooltip";
 
 export const MUI_TooltipPage: FC = () => {
   return (

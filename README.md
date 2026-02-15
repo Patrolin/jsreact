@@ -58,6 +58,19 @@ Now take this code for a text input:
 ```
 Since the browser updates `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
 
+You might think that there is still a problem with the `onChange` event. Since this event only fires when you unfocus the input,
+the user could type into an input and then immediately click a submit button. If you naively use a `useState()`, here
+then the submit would get an incorrect (old) value.
+```tsx
+  const [username, setUsername] = useState("");
+  return (<>
+    <input onChange={(event) => setUsername(event.target.value)} />
+    <button onClick={() => console.log(username)}>Submit</button>
+  </>);
+```
+However, the browser never actually does this, it schedules the rerender in between `onBlur` and `onMouseUp` events,
+which means the `onClick` event always gets the correct value.
+
 ### But doesn't this break existing React libraries? [⤴](#jsreact)
 No, `@mui/material` relies on `react-transition-group`, which relies on dumb legacy `Component` class apis, but it still works perfectly under jsreact,
 since we force conflicting renders to happen on different frames, so each one gets its layout effects separately.

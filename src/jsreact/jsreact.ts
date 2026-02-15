@@ -868,7 +868,7 @@ function rerender(component: JsReactComponent) {
   if ((rootComponent.flags & (FLAGS_IS_RENDERING | FLAGS_RERENDERED_THIS_FRAME)) === 0) {
     // fast path for initial render and infrequent rerenders
     if (SLOW_EVENT_HANDLERS) queueMicrotask(jsreact$renderNow); /* NOTE: Run before other event handlers, same as React. */
-    else setTimeout(jsreact$renderNow, 1); /* NOTE: Run after other event handlers, to minimize rerenders */
+    else setTimeout(jsreact$renderNow, 0) /* NOTE: Run just before the "mouseup" event handler, to minimize rerenders */
   } else {
     // delay to next monitor frame if user code rerenders too quickly
     requestAnimationFrame(jsreact$rerenderLater);
