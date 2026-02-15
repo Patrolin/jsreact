@@ -56,7 +56,7 @@ Now take this code for a text input:
     <input onChange={(event) => setUsername(event.target.value)} />
   </>);
 ```
-Since the browser updates `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
+Since browsers update `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
 
 You might think that there is still a problem with the `onChange` event. Since this event only fires when you unfocus the input,
 the user could type into an input and then immediately click a submit button. If you naively use a `useState()`, here
@@ -68,7 +68,7 @@ then the submit would get an incorrect (old) value.
     <button onClick={() => console.log(username)}>Submit</button>
   </>);
 ```
-However, the browser never actually does this, it schedules the rerender in between `onBlur` and `onMouseUp` events,
+However, browsers never actually do this, they schedule the rerender in between `onBlur` and `onMouseUp` events,
 which means the `onClick` event always gets the correct value.
 
 ### But doesn't this break existing React libraries? [⤴](#jsreact)
