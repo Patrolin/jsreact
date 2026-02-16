@@ -178,6 +178,8 @@ TODO: make a benchmark with lots of MUI TextFields
     /** If present, log why each render happened with this prefix
      *  into the `Verbose` group via `console.debug()`. */
     JSREACT_WHY_DID_YOU_RENDER_PREFIX?: string;
+    /** If greater than zero, console.warn() whenever a render takes more than this amount, defaults to `100` */
+    JSREACT_WARN_RENDER_MS?: number|"";
     /** If number, throw an exception on the nth render
      *  and all subsequent renders. */
     JSREACT_INFINITE_LOOP_COUNT?: number|"";

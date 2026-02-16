@@ -33,6 +33,7 @@ function parseEnvBoolean(name: string, value: string|undefined): boolean|undefin
 // env
 const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
 const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX);
+const WARN_RENDER_MS = parseEnvNumber("JSREACT_WARN_RENDER_MS", env.JSREACT_WARN_RENDER_MS) ?? 100;
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
@@ -866,7 +867,7 @@ function rerender(component: JsReactComponent) {
       // print debug info
       const renderMs = performance.now() - renderStartMs;
       const tabHasFocus = (rootComponent.flags & FLAGS_TAB_LOST_FOCUS) === 0;
-      if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs.toFixed(0)} ms.`);
+      if (WARN_RENDER_MS > 0 && renderMs > WARN_RENDER_MS && tabHasFocus) console.warn(`Render took ${renderMs.toFixed(0)} ms.`);
     } catch (error: any) {
       if (!IS_PRODUCTION) {
         let message = error;
