@@ -68,7 +68,7 @@ export type ValueOrVNode = Without<ReactNodeSync, Iterable<React.ReactNode>>;
 
 // private types
 type NamedExoticComponent<P = {}> = React.NamedExoticComponent<P>;
-type UntypedNamedExoticComponent<P = {}> = {
+type PartialNamedExoticComponent<P = {}> = {
   (props: P): ReactNode;
   $$typeof?: symbol;
   displayName?: NamedExoticComponent["displayName"];
@@ -76,7 +76,8 @@ type UntypedNamedExoticComponent<P = {}> = {
 type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"]; props: Element };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
 export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
-export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key"> & {
+export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key" | "type"> & {
+  type: ElementType;
   $$typeof: symbol;
   key?: ReactElement["key"];
   source?: {
@@ -134,7 +135,7 @@ Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: Compo
   throw new Error("BUG: Component.forceUpdate is not set");
 }
 Component.prototype.render = function(): ReactNode {return null}
-function isComponentClass(type: ReactElement["type"]): type is (new(props: any, context: any) => React.Component<any, any>) {
+function isComponentClass(type: any): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
@@ -161,7 +162,7 @@ export const version = 19;
 export function isValidElement(value: any): value is ReactElement<any, any> {
   return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
 }
-export function createElement(type: VNode["type"], props: VNode["props"] | null = null, ...argChildren: ReactNode[]): VNode {
+export function createElement(type: ElementType, props: VNode["props"] | null = null, ...argChildren: ReactNode[]): VNode {
   props = props ?? {};
   const { key, ...rest } = props;
   const children = "children" in props
@@ -174,20 +175,24 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
   if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
   return vnode;
 }
+// memo()
 const MEMO_SYMBOL = Symbol.for("react.memo");
 type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
-export function memo(component: FC, arePropsEqual?: (a: object, b: object) => boolean) {
-  if (component instanceof Component) {
-    console.warn("Not implemented: React.memo(ComponentClass)");
-    return component;
-  };
-  (component as MemoComponent).$$arePropsEqual = arePropsEqual ?? ((a: object, b: object): boolean => {
-    return Object.keys(a).some(k => Object.is(a[k], b[k])) || Object.keys(b).some(k => Object.is(a[k], b[k]));
-  })
-  return makeExoticComponent(MEMO_SYMBOL, component);
+function defaultArePropsEqual(a: object, b: object) {
+  const keys = new Set(Object.keys(a));
+  for (let k of Object.keys(b)) keys.add(k);
+  return Array.from(keys).some(k => Object.is(a[k], b[k]));
+}
+export function memo(component: React.JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
+  let memoComponent = component;
+  if (isComponentClass(component) || (component as NamedExoticComponent).$$typeof != null) {
+    memoComponent = ((props: object) => createElement(component, props)) as FC;
+  }
+  (memoComponent as MemoComponent).$$arePropsEqual = arePropsEqual;
+  return makeExoticComponent(MEMO_SYMBOL, memoComponent as FC);
 }
 // Fragment
-function makeExoticComponent<P = {}>($$typeof: symbol, render?: UntypedNamedExoticComponent<PropsWithChildren<P>>): NamedExoticComponent<P> {
+function makeExoticComponent<P = {}>($$typeof: symbol, render?: PartialNamedExoticComponent<PropsWithChildren<P>>): NamedExoticComponent<P> {
   if (render == null) {
     render = (props) => props.children;
     Object.defineProperty(render, "name", { value: "", configurable: true });
