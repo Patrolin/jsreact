@@ -193,6 +193,8 @@ TODO: make a benchmark with lots of MUI TextFields
      *    </button>
      *  would increment the state by 2 instead of 1 */
     JSREACT_SLOW_EVENT_HANDLERS?: boolean|"";
+    /** If true, mimic React's behavior of remapping `onChange` to `onInput` for <input> and <textarea> */
+    JSREACT_MAP_ONCHANGE_TO_ONINPUT?: boolean|"";
   ```
   NOTE: In vite, you have to explicitly forward the env variables with:
   ```ts

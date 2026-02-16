@@ -1,4 +1,4 @@
-import { AliasOptions, defineConfig, PluginOption } from "vite";
+import { Alias, defineConfig, PluginOption } from "vite";
 import preact from '@preact/preset-vite';
 import react from '@vitejs/plugin-react'
 import path from "path";
@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type VitePreset = {
   plugins: PluginOption[];
-  aliases: AliasOptions;
+  aliases: Alias[];
   tsConfig: any;
   excludeOptimizeDeps: string[];
 };
@@ -58,7 +58,10 @@ export default defineConfig(({mode}) => {
   return {
     envPrefix: ["VITE_", "JSREACT_"],
     plugins,
-    resolve: { alias: aliases },
+    resolve: { alias: [
+      ...aliases,
+      { find: "@", replacement: path.resolve(__dirname, "src") },
+    ] },
     esbuild: { tsconfigRaw: tsConfig },
     optimizeDeps: { exclude: excludeOptimizeDeps },
     server: { port: 3000, strictPort: true },

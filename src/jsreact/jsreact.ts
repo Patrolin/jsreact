@@ -36,6 +36,7 @@ const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PR
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
+const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -119,7 +120,7 @@ type ComponentClassStatic<P = {}, S = {}, _SS = any> = {
 };
 type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS>;
 type Writable<T> = { -readonly [K in keyof T]: T[K] };
-export function Component<P = {}, _S = {}, _SS = any>(props: P, _context: any) {
+export function Component<P = {}, S = {}, SS = any>(this: Writable<ComponentClass<P, S, SS>>, props: P, _context: any) {
   if (_context != null) throw new Error("Not implemented: Component(props, context)");
   this.props = props;
   this.state = this.state ?? {};
@@ -139,17 +140,17 @@ function isComponentClass(type: any): type is (new(props: any, context: any) => 
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
-function findDOMNode_Component(componentClass: ComponentClass, component: JsReactComponent) {
+function findDOMNode_Component(componentClass: ComponentClass, component: JsReactComponent): JsReactComponent | undefined {
   if (component.legacyComponent === componentClass) return component;
   for (let c of Object.values(component.children)) {
     const search = findDOMNode_Component(componentClass, c);
     if (search != null) return search;
   }
 }
-function findDOMNode_firstElement(component: JsReactComponent) {
-  const element = component.element;
+function findDOMNode_firstElement(component: JsReactComponent | undefined) {
+  const element = component?.element;
   if (element != null) return element;
-  const firstChild = Object.values(component.children)[0];
+  const firstChild = Object.values(component!.children)[0];
   if (firstChild == null) return null;
   return findDOMNode_firstElement(firstChild);
 }
@@ -178,7 +179,7 @@ export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null):
 // memo()
 const MEMO_SYMBOL = Symbol.for("react.memo");
 type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
-function defaultArePropsEqual(a: object, b: object) {
+function defaultArePropsEqual(a: Record<string, any>, b: Record<string, any>) {
   const keys = new Set(Object.keys(a));
   for (let k of Object.keys(b)) keys.add(k);
   return Array.from(keys).some(k => Object.is(a[k], b[k]));
@@ -305,9 +306,9 @@ type JsReactComponent = {
   /** used to implement rerender() */
   flags: number;
 };
-type PrevEventHandler = {
-  raw: ((event: any) => void) | null | undefined;
-  react: ((event: any) => void) | null | undefined;
+type PrevEventHandler<T = Event> = {
+  raw: ReactEventHandler<T> | null | undefined;
+  mapped: EventHandler<T> | null | undefined;
 };
 const FLAGS_TAB_LOST_FOCUS = 16;
 const FLAGS_RERENDERED_THIS_FRAME = 8;
@@ -404,21 +405,22 @@ widows
 zIndex
 `);
 type EventHandler<T = Event> = ((event: T, ...args: any[]) => void) | null | undefined;
-type SyntheticEvent = Event & {
-  nativeEvent: Event;
+type SyntheticEvent<T = Event> = T & {
+  nativeEvent: T;
   isDefaultPrevented: () => boolean;
   isPropagationStopped: () => boolean;
   persist: () => void;
   isPersistent: () => boolean;
 };
-function makeReactEventHandler(callback: EventHandler): EventHandler<SyntheticEvent> {
+type ReactEventHandler<T = Event> = EventHandler<SyntheticEvent<T>>;
+function makeReactEventHandler(callback: ReactEventHandler): EventHandler<Event> {
   if (callback == null) return callback;
-  return (event: SyntheticEvent) => {
+  return ((event: SyntheticEvent) => {
     event.nativeEvent = event;
     event.isDefaultPrevented = () => event.defaultPrevented;
     event.isPropagationStopped = () => event.cancelBubble ?? false;
     callback(event);
-  }
+  }) as EventHandler;
 }
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 function applyDOMProps(component: JsReactComponent, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
@@ -435,8 +437,8 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
     for (let [k, v] of Object.entries(style)) {
       /* NOTE: pass through `--${string}` and `-${string}` directly, else add "px" to non-unitless numbers. */
       if (k.startsWith("-")) (element as HTMLElement).style.setProperty(k, v);
-      else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k] = v;
-      else (element as HTMLElement).style[k] = (typeof v === "number" ? `${v}px` : v);
+      else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k as any] = v;
+      else (element as HTMLElement).style[k as any] = (typeof v === "number" ? `${v}px` : v);
     }
   }
   // className
@@ -449,17 +451,27 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   }
   component.hooks = newClassList;
   // attributes/events
-  for (let [key, value] of Object.entries(rest)) {
+  if (MAP_ONCHANGE_TO_ONINPUT && (desiredElementType === "input" || desiredElementType === "textarea")) {
+    const {onInput, onChange} = rest;
+    if (onChange) {
+      rest.onInput = (event) => {
+        onInput?.(event);
+        onChange?.(event);
+      }
+      delete rest.onChange;
+    }
+  }
+  for (const [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
       const type = key.slice(2).toLowerCase();
       const prevEventHandler = prevEventHandlers[type];
-      const rawEventHandler = props[key];
-      const reactEventHandler = makeReactEventHandler(rawEventHandler);
-      prevEventHandlers[type] = {raw: rawEventHandler, react: reactEventHandler};
+      const rawEventHandler = value as ReactEventHandler;
+      const mappedEventHandler = makeReactEventHandler(rawEventHandler);
+      prevEventHandlers[type] = {raw: rawEventHandler, mapped: mappedEventHandler};
       if (prevEventHandler?.raw == rawEventHandler) continue;
-      if (prevEventHandler?.react != null) element.removeEventListener(type, prevEventHandler.react);
-      if (reactEventHandler != null) {
-        element.addEventListener(type, reactEventHandler, { passive: PASSIVE_EVENTS.has(type) });
+      if (prevEventHandler?.mapped != null) element.removeEventListener(type, prevEventHandler.mapped);
+      if (mappedEventHandler != null) {
+        element.addEventListener(type, mappedEventHandler, { passive: PASSIVE_EVENTS.has(type) });
       }
     } else {
       if (HTML_BOOLEAN_ATTRIBUTES.has(key)) {
@@ -478,7 +490,7 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
 }
 
 // render
-function isIterable(value: ReactNode): value is Iterable<ReactNode> {
+function isIterable(value: any): value is Iterable<any> {
   return typeof value !== "string" && typeof value?.[Symbol.iterator] === "function";
 }
 function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
@@ -594,7 +606,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           const prevProps = instance.props;
           const prevState = instance.state;
           // get next state
-          const stateRef = useRef(prevState ?? {});
+          const stateRef = useRef<Record<string, any>>(prevState ?? {});
           instance.props = instanceProps;
           instance.state = stateRef.current;
           // getDerivedStateFromProps()
@@ -615,7 +627,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
             const state = stateRef.current;
             let diff = newState;
             if (typeof diff === "function") diff = diff(state, instance.props);
-            const nextState = {...state, ...diff};
+            const nextState: Record<string, any> = {...state, ...diff};
             if (Object.keys(nextState).some(k => !Object.is(nextState[k], state[k]))) {
               stateRef.current = nextState;
               rerender(component);
@@ -741,7 +753,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
           (hook as UseEffect).cleanup?.();
         } break
         case USE_LEGACY_WILL_UNMOUNT_SYMBOL: {
-          (hook as UseLegacyWillUnmount).callback?.call(component.legacyComponent);
+          (hook as UseLegacyWillUnmount).callback?.call(component.legacyComponent as ComponentClass);
         } break
         default: {
           throw new Error(String(hookType));
@@ -855,7 +867,7 @@ function rerender(component: JsReactComponent) {
       const renderMs = performance.now() - renderStartMs;
       const tabHasFocus = (rootComponent.flags & FLAGS_TAB_LOST_FOCUS) === 0;
       if (renderMs > 33 && tabHasFocus) console.warn(`Render took ${renderMs.toFixed(0)} ms.`);
-    } catch (error) {
+    } catch (error: any) {
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
@@ -920,6 +932,8 @@ export function createRoot(parent: HTMLElement) {
 // hooks
 /** the current component */
 let $component = {} as JsReactComponent;
+/** NOTE: internal tool for debugging */
+export function __getCurrentComponent(): JsReactComponent {return $component}
 /** NOTE: RootHooks must be run in the order defined here */
 type RootHooks = {
   legacyComponentUpdates: UseLegacyComponentUpdate[];
@@ -944,7 +958,7 @@ export const useRerender = () => () => rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
   const index = $component.hookIndex++;
   if (index >= $component.hooks.length) {
-    if ($component.prevHookIndex === 0) ($component.hooks as Hook[]).push(defaultState);
+    if ($component.prevHookIndex === 0) ($component.hooks as Hook[]).push(Object.seal(defaultState));
     else throw new RangeError(`Components must have a constant number of hooks, got: ${$component.hookIndex}, expected: ${$component.prevHookIndex}`);
   }
   return $component.hooks[index] as T;

@@ -8,6 +8,7 @@
     "outDir": "dist",
     "declaration": true,
     "strictNullChecks": true,
+    "strict": true,
     "allowJs": true,
     "checkJs": true
   },
