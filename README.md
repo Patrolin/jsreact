@@ -75,7 +75,7 @@ which means the `onClick` event always gets the correct value.
 No, `@mui/material` relies on `react-transition-group`, which relies on dumb legacy `Component` class apis, but it still works perfectly under jsreact,
 since we force conflicting renders to happen on different frames, so each one gets its layout effects separately.
 
-### Meaningless differences to React [⤴](#jsreact)
+### Differences to React [⤴](#jsreact)
 Here is an example timeline of how different React implementations order events:
 ```tsx
   return (<>
@@ -96,6 +96,8 @@ Here is an example timeline of how different React implementations order events:
 
 There is a defined order for the type of callback (render() -> componentDidMount()/componentDidUpdate() -> ...).
 But the order between different components is not defined, and both we and React choose to group by callback type for better perfomance.
+
+See also: [Environment variables](#environment-variables-)
 
 ## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
