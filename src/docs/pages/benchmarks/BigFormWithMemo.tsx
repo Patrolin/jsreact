@@ -35,7 +35,6 @@ const TextFieldMemoImplementation = memo(
     const keys = new Set([...Object.keys(a), ...Object.keys(a)]);
     return Array.from(keys).every((k) => {
       if (k === "style") return objectEquals(a["style"], b["style"]);
-      if (!Object.is(a[k], b[k])) console.log("ayaya.k", k);
       return Object.is(a[k], b[k]);
     });
   }
