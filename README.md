@@ -2,6 +2,7 @@
 A reimplementation of React that disallows multiple rerenders per frame.
 
 - [How is this achieved?](#how-is-this-achieved-)
+  - [Differences to React](#differences-to-react-)
 - [Benchmarks](#benchmarks-)
 - [What we don't support](#what-we-dont-support-)
 - [Install](#install-)
@@ -89,6 +90,7 @@ Here is an example timeline of how different React implementations order events:
 |bar.render()             |bar.render()             |bar.render()             |
 |foo.componentDidMount()  |foo.componentDidMount()  |foo.componentDidMount()  |
 |bar.componentDidMount()  |bar.componentDidMount()  |bar.componentDidMount()  |
+|                         |                         |                         |
 |foo.render()             |foo.render()             |foo.render()             |
 |foo.componentDidUpdate() |bar.render()             |bar.render()             |
 |bar.render()             |foo.componentDidUpdate() |foo.componentDidUpdate() |
