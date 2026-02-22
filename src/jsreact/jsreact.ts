@@ -14,9 +14,8 @@ function replaceDocumentWithError(message: string, throwError: boolean, rootElem
   if (throwError) throw new Error(message);
 }
 /** NOTE: bundler-agnostic env */
-const env = typeof import.meta !== "undefined" && import.meta.env
-  ? import.meta.env
-  : (typeof process !== "undefined" ? process.env : {});
+// @ts-ignore
+const env = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : (typeof process !== "undefined" ? process.env : {});
 function mapEnvString<T = string|undefined>(value: string|undefined, mapping: (v: string|undefined) => T = v => v as T): T {return mapping(value)}
 function parseEnvNumber(name: string, value: string|undefined): number|undefined {
   if ((value ?? "") === "") return undefined;
@@ -783,8 +782,10 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
 // debug tools
 function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
+  // @ts-ignore
   if (Error.captureStackTrace) {
     const stacktrace = {} as unknown as {stack: string};
+    // @ts-ignore
     (Error.captureStackTrace as Function)(stacktrace, whoami);
     const lines = stacktrace.stack;
     return lines.slice(lines.indexOf("\n") + 1);
