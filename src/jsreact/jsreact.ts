@@ -838,7 +838,7 @@ function rerender(component: JsReactComponent) {
       }
       if (infiniteLoop) {
         if (INFINITE_LOOP_PAUSE && renderCount === INFINITE_LOOP_COUNT) debugger; /* NOTE: the browser UI breaks if you debugger too quickly... */
-        else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whoami()}`;
+        else throw `Infinite loop (${INFINITE_LOOP_COUNT}):\n${whyDidYouRender ?? whoami()}`;
       };
       // render
       const renderStartMs = performance.now();
