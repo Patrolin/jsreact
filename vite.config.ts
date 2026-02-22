@@ -2,12 +2,10 @@ import { Alias, defineConfig, PluginOption } from "vite";
 import preact from '@preact/preset-vite';
 import react from '@vitejs/plugin-react'
 import path from "path";
-import { fileURLToPath } from "url";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type VitePreset = {
-  plugins: PluginOption[];
   aliases: Alias[];
+  plugins: PluginOption[];
   tsConfig: any;
   excludeOptimizeDeps: string[];
 };
