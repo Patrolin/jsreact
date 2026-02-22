@@ -3,14 +3,14 @@ import type React from "react";
 
 // utils
 /** Replace `document.body` with the `message` while avoiding XSS. */
-function replaceDocumentWithError(message: string, throwError: boolean) {
-  for (let child of document.body.childNodes) child.remove();
+function replaceDocumentWithError(message: string, throwError: boolean, rootElement: HTMLElement) {
+  for (let child of rootElement.childNodes) child.remove();
   const h3 = document.createElement("h3");
   h3.className = "jsreact-error";
   h3.style.fontFamily = "Consolas, sans-serif";
   h3.style.whiteSpace = "pre-wrap";
   h3.innerText = message;
-  document.body.append(h3);
+  rootElement.append(h3);
   if (throwError) throw new Error(message);
 }
 /** NOTE: bundler-agnostic env */
@@ -22,13 +22,13 @@ function parseEnvNumber(name: string, value: string|undefined): number|undefined
   if ((value ?? "") === "") return undefined;
   const number = parseInt(value ?? "");
   if (!Number.isNaN(number)) return number;
-  replaceDocumentWithError(`Invalid number in env: ${name}=${value}`, true);
+  replaceDocumentWithError(`Invalid number in env: ${name}=${value}`, true, document.body);
 }
 function parseEnvBoolean(name: string, value: string|undefined): boolean|undefined {
   if ((value ?? "") === "") return undefined;
   if (value === "1" || value === "true" || value === "yes" || value === "y" || value === "Y") return true;
   if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return true;
-  replaceDocumentWithError(`Invalid boolean in env: ${name}=${value}`, true);
+  replaceDocumentWithError(`Invalid boolean in env: ${name}=${value}`, true, document.body);
 }
 
 // env
@@ -871,7 +871,7 @@ function rerender(component: JsReactComponent) {
       if (!IS_PRODUCTION) {
         let message = error;
         if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
-        replaceDocumentWithError(`Uncaught ${message}`, false);
+        replaceDocumentWithError(`Uncaught ${message}`, false, rootComponent.element as HTMLElement);
       }
       throw error;
     }
