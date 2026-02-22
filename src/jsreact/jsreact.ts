@@ -14,8 +14,8 @@ function replaceDocumentWithError(message: string, throwError: boolean) {
   if (throwError) throw new Error(message);
 }
 /** NOTE: bundler-agnostic env */
-const env = typeof import.meta !== "undefined" && import.meta["env"]
-  ? import.meta["env"]
+const env = typeof import.meta !== "undefined" && import.meta.env
+  ? import.meta.env
   : (typeof process !== "undefined" ? process.env : {});
 function mapEnvString<T = string|undefined>(value: string|undefined, mapping: (v: string|undefined) => T = v => v as T): T {return mapping(value)}
 function parseEnvNumber(name: string, value: string|undefined): number|undefined {
@@ -461,6 +461,7 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   component.hooks = newClassList;
   // attributes/events
   if (MAP_ONCHANGE_TO_ONINPUT && (desiredElementType === "input" || desiredElementType === "textarea")) {
+    console.log("ayaya.MAP_ONCHANGE_TO_ONINPUT")
     const {onInput, onChange} = rest;
     if (onChange) {
       rest.onInput = (event) => {
