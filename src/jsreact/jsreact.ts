@@ -718,7 +718,6 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
   }
   // render children
   const children: ReactNodeSync = leaf === child ? (leaf as VirtNode)?.props?.children as ReactNodeSync : leaf;
-  //console.log("ayaya.leaf", {key, children});
   jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
   if (context != null) context._currentValue = prevContextValue;
 }
@@ -741,16 +740,8 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   }
 }
 function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeChildrenFromDOM: boolean) {
-  //console.log("ayaya.gc.parent", {
-  //  parent: parent.key,
-  //  parentGcFlag,
-  //  children: Object.values(parent.children).map(v =>  v.key),
-  //  z: parent,
-  //})
-  //console.log("ayaya.gc", parent.key, parent);
   for (let component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
-      //console.log("ayaya.gc.hit", {key: component.key, $$typeof, component, parent});
       delete parent.children[component.key]; /* delete old state */
       // run cleanup code
       for (let hook of component.hooks as Hook[]) {
@@ -922,7 +913,6 @@ export function createRoot(parent: HTMLElement) {
       flags: 0,
     };
     rootComponent.root = rootComponent;
-    //console.log("ayaya.root", rootComponent);
     rerender(rootComponent);
     // set FLAGS_TAB_LOST_FOCUS
     if (document.visibilityState === "hidden") rootComponent.flags = rootComponent.flags | FLAGS_TAB_LOST_FOCUS;
