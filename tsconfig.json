@@ -8,7 +8,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node", "@types/react"],
+    "types": ["@types/react"],
     "noEmit": true,
     "strictNullChecks": true,
     "strict": true,

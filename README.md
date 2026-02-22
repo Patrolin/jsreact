@@ -138,7 +138,7 @@ TODO: make a benchmark with lots of MUI TextFields
     ```json
       "jsx": "react-jsx",
       "jsxImportSource": "react",
-      "types": ["node", "@types/react"],
+      "types": ["@types/react"],
     ```
 3) In your bundler, e.g. `vite.config.ts`, add:
     ```ts
