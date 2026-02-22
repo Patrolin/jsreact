@@ -43,24 +43,26 @@ export const Route = Fragment as FC<RouteProps>;
 
 type RouterContextType = {
   path: string;
-  query: Record<string, string>;
   params: Record<string, string>;
+  url: string;
+  query: Record<string, string>;
 };
 const RouterContext = createContext<RouterContextType | undefined>(undefined);
 type RouterProps = {};
 export const Router: FC<PropsWithChildren<RouterProps>> = (props) => {
   const routerRef = useRef<RouterContextType>({
-    path: "",
-    query: {},
+    path: undefined as unknown as string,
     params: {},
+    url: undefined as unknown as string,
+    query: {},
   });
   // find matching route
   const { children } = props;
   if (!Array.isArray(children)) return;
-  const { pathname, query } = useLocation();
+  const { pathname, url, query } = useLocation();
   let newParams = {} as Record<string, string>;
-  let selectedRoute: RouteProps|undefined;
-  let defaultRoute: RouteProps|undefined;
+  let selectedRoute: RouteProps | undefined;
+  let defaultRoute: RouteProps | undefined;
   for (let child of children) {
     const route = child.props as RouteProps;
     const { path, default: isDefault } = route;
@@ -74,7 +76,7 @@ export const Router: FC<PropsWithChildren<RouterProps>> = (props) => {
       while (patternOffset < path.length || matchOffset < pathname.length) {
         const pattern = path.slice(patternOffset).match(/:([^:/]*)/);
         const stringEnd = pattern != null ? pattern.index! : Infinity;
-        isMatchingPath &&= path.slice(patternOffset, patternOffset+stringEnd) === pathname.slice(matchOffset, matchOffset+stringEnd);
+        isMatchingPath &&= path.slice(patternOffset, patternOffset + stringEnd) === pathname.slice(matchOffset, matchOffset + stringEnd);
         if (pattern == null) break;
         const match = pathname.slice(matchOffset).slice(pattern.index).match(/[^/]*/)!;
         newParams[pattern[1]] = match[0];
@@ -88,11 +90,14 @@ export const Router: FC<PropsWithChildren<RouterProps>> = (props) => {
   }
   if (selectedRoute == null) selectedRoute = defaultRoute;
   // set RouterContext
-  routerRef.current.path = pathname;
-  routerRef.current.query = query;
-  routerRef.current.params = {}; // TODO: BIN-26 route params
+  if (pathname !== routerRef.current.path) {
+    routerRef.current.path = pathname;
+    routerRef.current.params = newParams;
+  }
+  if (url !== routerRef.current.url) {
+    routerRef.current.url = url;
+    routerRef.current.query = query;
+  }
   const SelectedComponent = selectedRoute?.component;
-  return <RouterContext value={routerRef.current}>
-    {SelectedComponent && <SelectedComponent />}
-  </RouterContext>;
+  return <RouterContext value={routerRef.current}>{SelectedComponent && <SelectedComponent />}</RouterContext>;
 };

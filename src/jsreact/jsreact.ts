@@ -461,7 +461,6 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   component.hooks = newClassList;
   // attributes/events
   if (MAP_ONCHANGE_TO_ONINPUT && (desiredElementType === "input" || desiredElementType === "textarea")) {
-    console.log("ayaya.MAP_ONCHANGE_TO_ONINPUT")
     const {onInput, onChange} = rest;
     if (onChange) {
       rest.onInput = (event) => {
