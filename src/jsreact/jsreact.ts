@@ -90,7 +90,7 @@ export type VirtNode = Omit<ReactElement<DOMProps, ElementType>, "key" | "type">
   } | null;
 };
 
-// legacy Component class - must be callable as both `new Component()` and `Component()`
+// legacy Component class - must be callable as both `new Component()` and `Component()`, AND extendable via `extends Component<...>`
 const LEGACY_COMPONENT_STATIC_SUPPORTED: Record<string, boolean> = {
   contextType: true,
   contextTypes: false,
@@ -119,29 +119,33 @@ type ComponentClass<P = {}, S = {}, SS = any> = {
   readonly contextType?: Context<any>;
   readonly defaultProps?: Partial<P>;
   getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
-  constructor (props: P, _context?: any): ComponentInstance<P, S, SS>;
-  (props: P, _context?: any): ComponentInstance<P, S, SS>;
+  // callable
+  new <P = {}, S = {}, SS = any>(props: P, _context?: any): ComponentInstance<P, S, SS>;
+  <P = {}, S = {}, SS = any>(props: P, _context?: any): ComponentInstance<P, S, SS>;
+  prototype: ComponentInstance<P, S, SS>;
 };
-type ComponentInstance<P = {}, S = {}, SS = any> = React.Component<P, S, SS>;
+type ComponentInstance<P = {}, S = {}, SS = any> = React.Component<P, S, SS>
 type Writable<T> = { -readonly [K in keyof T]: T[K] };
-const Component = function ComponentImpl<P = {}, S = {}, SS = any>(this: Writable<ComponentInstance<P, S, SS>>, props: P, _context: any) {
+function ComponentImpl<P = {}, S = {}, SS = any>(this: ComponentInstance<P, S, SS>, props: P, _context?: any) {
   if (_context != null) throw new Error("Not implemented: Component(props, context)");
-  this.props = props;
+  if (!(this instanceof ComponentImpl)) {
+    return new (ComponentImpl as any)(props, _context);
+  }
+  (this as Writable<ComponentInstance<P, S, SS>>).props = props;
   this.state = this.state ?? {};
-} as ComponentClass;
-Component.prototype.setState = function<P = {}, S = {}, SS = any>(
-  this: ComponentClass<P, S, SS>,
+};
+ComponentImpl.prototype.setState = function<P = {}, S = {}, _SS = any>(
   _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
   _callback: any,
 ) {
   throw new Error("BUG: Component.setState is not set");
 }
-Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
+ComponentImpl.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(): void {
   throw new Error("BUG: Component.forceUpdate is not set");
 }
-Component.prototype.render = function(): ReactNode {return null}
-export {Component};
-function isComponentClass(type: any): type is (new(props: any, context: any) => React.Component<any, any>) {
+ComponentImpl.prototype.render = function(): ReactNode {return null}
+export const Component = ComponentImpl as ComponentClass;
+function isComponentClass(type: any): type is ComponentClass {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
