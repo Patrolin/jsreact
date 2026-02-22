@@ -1,3 +1,4 @@
+// jsreact v1.0
 import type React from "react";
 
 // utils
@@ -13,8 +14,8 @@ function replaceDocumentWithError(message: string, throwError: boolean) {
   if (throwError) throw new Error(message);
 }
 /** NOTE: bundler-agnostic env */
-const env = typeof import.meta !== "undefined" && import.meta.env
-  ? import.meta.env
+const env = typeof import.meta !== "undefined" && import.meta["env"]
+  ? import.meta["env"]
   : (typeof process !== "undefined" ? process.env : {});
 function mapEnvString<T = string|undefined>(value: string|undefined, mapping: (v: string|undefined) => T = v => v as T): T {return mapping(value)}
 function parseEnvNumber(name: string, value: string|undefined): number|undefined {
@@ -114,37 +115,44 @@ const LEGACY_COMPONENT_SUPPORTED: Record<string, boolean> = {
   UNSAFE_componentWillReceiveProps: false,
   UNSAFE_componentWillUpdate: false,
 };
-type ComponentClassStatic<P = {}, S = {}, _SS = any> = {
+type ComponentClass<P = {}, S = {}, SS = any> = {
   readonly contextType?: Context<any>;
   readonly defaultProps?: Partial<P>;
   getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
+  constructor (props: P, _context?: any): Component<P, S, SS>;
+  (props: P, _context?: any): Component<P, S, SS>;
 };
-type ComponentClass<P = {}, S = {}, SS = any> = React.Component<P, S, SS>;
-type Writable<T> = { -readonly [K in keyof T]: T[K] };
-export function Component<P = {}, S = {}, SS = any>(this: Writable<ComponentClass<P, S, SS>>, props: P, _context: any) {
-  if (_context != null) throw new Error("Not implemented: Component(props, context)");
-  this.props = props;
-  this.state = this.state ?? {};
+type ComponentInstance<P = {}, S = {}, SS = any> = Component<P, S, SS> & Pick<React.Component, "componentDidMount" | "componentDidUpdate" | "componentWillUnmount">;
+export class Component<P = {}, S = {}, SS = any> implements React.Component<P, S, SS> {
+  props: React.Component<P, S, SS>["props"];
+  state: React.Component<P, S, SS>["state"];
+  context: React.Component<P, S, SS>["context"];
+  constructor(props: P, _context?: any) {
+    if (_context != null) throw new Error("Not implemented: Component(props, context)");
+    this.props = props;
+    this.state = {} as S;
+  }
+  setState(
+    _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
+    _callback: any
+  ): void {
+    throw new Error("BUG: Component.setState is not set");
+  }
+  forceUpdate(): void {
+    throw new Error("BUG: Component.forceUpdate is not set");
+  }
+  render(): ReactNode {
+    return null;
+  }
 }
-Component.prototype.setState = function<P = {}, S = {}, SS = any>(
-  this: ComponentClass<P, S, SS>,
-  _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
-  _callback: any,
-) {
-  throw new Error("BUG: Component.setState is not set");
-}
-Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
-  throw new Error("BUG: Component.forceUpdate is not set");
-}
-Component.prototype.render = function(): ReactNode {return null}
 function isComponentClass(type: any): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
-function findDOMNode_Component(componentClass: ComponentClass, component: JsReactComponent): JsReactComponent | undefined {
-  if (component.legacyComponent === componentClass) return component;
+function findDOMNode_Component(classComponent: ComponentInstance, component: JsReactComponent): JsReactComponent | undefined {
+  if (component.instance === classComponent) return component;
   for (let c of Object.values(component.children)) {
-    const search = findDOMNode_Component(componentClass, c);
+    const search = findDOMNode_Component(classComponent, c);
     if (search != null) return search;
   }
 }
@@ -155,8 +163,8 @@ function findDOMNode_firstElement(component: JsReactComponent | undefined) {
   if (firstChild == null) return null;
   return findDOMNode_firstElement(firstChild);
 }
-export function findDOMNode(componentClass: ComponentClass) {
-  const component = findDOMNode_Component(componentClass, $component.root);
+export function findDOMNode(classComponent: ComponentInstance) {
+  const component = findDOMNode_Component(classComponent, $component.root);
   return findDOMNode_firstElement(component);
 }
 /** NOTE: libraries use this to detect React features... */
@@ -286,8 +294,8 @@ type JsReactComponent = {
   node: ValueOrVNode;
   /** the HTML or SVG element derived from JSX */
   element: Element | SVGElement | undefined;
-  /** used to implement ComponentClass */
-  legacyComponent: ComponentClass<any, any> | RootHooks | undefined;
+  /** used to implement ComponentClass, or RootHooks on root component */
+  instance: ComponentInstance<any, any> | RootHooks | undefined;
   /** used to catch errors */
   prevHookIndex: number;
   /** used by `useId()` on RootComponent, else used to catch errors */
@@ -532,7 +540,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
     component = {
       node: undefined,
       element: undefined,
-      legacyComponent: undefined,
+      instance: undefined,
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
@@ -587,13 +595,13 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
               throw `Not implemented: Component.${key}`;
             }
           }
-          const {contextType, defaultProps, getDerivedStateFromProps} = leafType as unknown as ComponentClassStatic;
-          let instance = component.legacyComponent as Writable<ComponentClass>;
+          const {contextType, defaultProps, getDerivedStateFromProps} = leafType as unknown as ComponentClass;
+          let instance = component.instance as ComponentInstance;
           const instanceProps = {...defaultProps, ...leaf.props as object};
           const instanceIsNew = instance == null;
           if (instanceIsNew) {
-            instance = new leafType(instanceProps, null) as Writable<ComponentClass>;
-            component.legacyComponent = instance as ComponentClass;
+            instance = new leafType(instanceProps, null) as ComponentInstance;
+            component.instance = instance as ComponentInstance;
           }
           instance.context = contextType != null ? useContext(contextType) : undefined;
           // instance props
@@ -754,7 +762,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
           (hook as UseEffect).cleanup?.();
         } break
         case USE_LEGACY_WILL_UNMOUNT_SYMBOL: {
-          (hook as UseLegacyWillUnmount).callback?.call(component.legacyComponent as ComponentClass);
+          (hook as UseLegacyWillUnmount).callback?.call(component.instance as ComponentInstance);
         } break
         default: {
           throw new Error(String(hookType));
@@ -786,7 +794,7 @@ function whoami() {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   if (Error.captureStackTrace) {
     const stacktrace = {} as unknown as {stack: string};
-    Error.captureStackTrace(stacktrace, whoami);
+    (Error.captureStackTrace as Function)(stacktrace, whoami);
     const lines = stacktrace.stack;
     return lines.slice(lines.indexOf("\n") + 1);
   } else {
@@ -847,8 +855,8 @@ function rerender(component: JsReactComponent) {
       rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RERENDER) | FLAGS_IS_RENDERING;
       await jsreact$renderChildren(rootComponent, rootComponent.node, [], false);
       // run pending effects
-      const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.legacyComponent as RootHooks;
-      (rootComponent.legacyComponent as RootHooks) = {
+      const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.instance as RootHooks;
+      (rootComponent.instance as RootHooks) = {
         legacyComponentUpdates: [],
         legacySetStateCallbacks: [],
         useLayoutEffects: [],
@@ -902,7 +910,7 @@ export function createRoot(parent: HTMLElement) {
     const rootComponent: JsReactComponent = {
       node: vnode,
       element: parent,
-      legacyComponent: rootHooks,
+      instance: rootHooks,
       prevHookIndex: 0,
       hookIndex: 0,
       hooks: [],
@@ -943,13 +951,13 @@ type RootHooks = {
 }
 type UseLegacyComponentUpdate = { callback: () => void };
 function useLegacyComponentUpdate(callback: () => void) {
-  const rootHooks = $component.root.legacyComponent as RootHooks;
+  const rootHooks = $component.root.instance as RootHooks;
   rootHooks.legacyComponentUpdates.push({ callback });
 }
 type UseLegacySetStateCallback = { callback: () => void };
 function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
   if (callback != null) {
-    const rootHooks = $component.root.legacyComponent as RootHooks;
+    const rootHooks = $component.root.instance as RootHooks;
     rootHooks.legacySetStateCallbacks.push({ callback });
   }
 }
@@ -965,8 +973,8 @@ export function useHook<T extends object>(defaultState: T = {} as T): T {
   return $component.hooks[index] as T;
 }
 const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
-type UseLegacyWillUnmount = NamedHook<{ callback: ((this: ComponentClass) => void) | undefined | null }>;
-export function useLegacyWillUnmount(callback: ((this: ComponentClass) => void) | undefined | null) {
+type UseLegacyWillUnmount = NamedHook<{ callback: ((this: ComponentInstance) => void) | undefined | null }>;
+export function useLegacyWillUnmount(callback: ((this: ComponentInstance) => void) | undefined | null) {
   const hook = useHook<UseLegacyWillUnmount>({ $$typeof: USE_LEGACY_WILL_UNMOUNT_SYMBOL, callback });
   hook.callback = callback;
 }
@@ -1030,7 +1038,7 @@ export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     hook.setup = setup;
-    const rootHooks = $component.root.legacyComponent as RootHooks;
+    const rootHooks = $component.root.instance as RootHooks;
     rootHooks.useLayoutEffects.push(hook);
   }
 }
