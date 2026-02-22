@@ -1,7 +1,10 @@
-import { createRoot, ValueOrVNode } from "../jsreact";
-export type * from "../jsreact";
+export * from "./preact";
+import * as Preact from "./preact";
 
-export function render(valueOrVnode: ValueOrVNode, parent: HTMLElement) {
-  createRoot(parent).render(valueOrVnode);
-}
-export type VNode<P = {}> = React.ReactElement<P>;
+const SafePreact = new Proxy(Preact, {
+  get(target: any, prop: string) {
+    if (prop in target) return target[prop];
+    throw new Error(`PROXY: preact.${String(prop)} is not yet implemented in jsreact`);
+  },
+});
+export default SafePreact;

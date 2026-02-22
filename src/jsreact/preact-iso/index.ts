@@ -1,21 +1,10 @@
-import { createContext, FC, Fragment, PropsWithChildren } from "../jsreact";
+export * from "./preact-iso";
+import * as PreactIso from "./preact-iso";
 
-// router
-type RouterProps = {};
-export const Router: FC<PropsWithChildren<RouterProps>> = (props) => {
-  const {children} = props;
-  if (!Array.isArray(children)) return;
-  for (let child of children) {
-    console.log("ayaya.child", child);
-  }
-  return undefined;
-}
-
-type RouteProps = {path?: string; default?: boolean, component: React.JSXElementConstructor<any>};
-export const Route = Fragment as FC<RouteProps>;
-
-// LocationProvider
-export const LocationProvider = createContext(undefined) as FC;
-export function useLocation() {
-  throw new Error("useLocation()");
-}
+const SafePreactIso = new Proxy(PreactIso, {
+  get(target: any, prop: string) {
+    if (prop in target) return target[prop];
+    throw new Error(`PROXY: preact.${String(prop)} is not yet implemented in jsreact`);
+  },
+});
+export default SafePreactIso;
