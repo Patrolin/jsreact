@@ -144,6 +144,17 @@ TODO: make a benchmark with lots of MUI TextFields
     ```ts
       { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
       { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/react-dom") },
+      // NOTE: If using preact, also add:
+      { find: "preact", replacement: path.resolve(__dirname, "src/jsreact/preact") },
+      { find: "preact-iso", replacement: path.resolve(__dirname, "src/jsreact/preact-iso") },
+    ```
+4) If using preact, also add overrides for types into `.tsconfig.json`:
+    ```json
+      "baseUrl": ".",
+      "paths": {
+        "preact": ["src/jsreact/preact"],
+        "preact-iso": ["src/jsreact/preact-iso"]
+      }
     ```
 
 ## Usage [⤴](#jsreact)

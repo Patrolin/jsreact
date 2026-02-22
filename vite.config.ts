@@ -1,4 +1,4 @@
-import { Alias, defineConfig, PluginOption } from "vite";
+import { Alias, defineConfig, PluginOption, UserConfig } from "vite";
 import preact from '@preact/preset-vite';
 import react from '@vitejs/plugin-react'
 import path from "path";
@@ -41,6 +41,8 @@ function getVitePreset(mode: string): VitePreset {
       aliases: [
         { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
         { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/react-dom") },
+        { find: "preact", replacement: path.resolve(__dirname, "src/jsreact/preact") },
+        { find: "preact-iso", replacement: path.resolve(__dirname, "src/jsreact/preact-iso") },
       ],
       plugins: [],
       tsConfig: require("./tsconfig.json"),
@@ -53,7 +55,7 @@ function getVitePreset(mode: string): VitePreset {
 // https://vitejs.dev/config/
 export default defineConfig(({mode}) => {
   const {plugins, aliases, tsConfig, excludeOptimizeDeps} = getVitePreset(mode);
-  return {
+  const config: UserConfig = {
     envPrefix: ["VITE_", "JSREACT_"],
     plugins,
     resolve: { alias: [
@@ -67,5 +69,6 @@ export default defineConfig(({mode}) => {
       // support for mock/mui-material
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     }
-  }
+  };
+  return config;
 });

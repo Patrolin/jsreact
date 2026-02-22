@@ -14,7 +14,11 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/*": ["src/*"],
+      "preact": ["src/jsreact/preact"],
+      "preact-iso": ["src/jsreact/preact-iso"]
+    }
   },
   "include": ["node_modules/vite/client.d.ts", "src/**/*"],
   "exclude": ["src/mock/mui-material/**/*"]

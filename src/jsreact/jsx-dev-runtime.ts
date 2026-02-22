@@ -1,13 +1,13 @@
-import { REACT_ELEMENT_TYPE, type VNode } from "./jsreact";
+import { REACT_ELEMENT_TYPE, type VirtNode } from "./jsreact";
 export { Fragment } from "./jsreact";
 
 export function jsxDEV(
-  type: VNode["type"],
-  props: VNode["props"] | null,
-  key: VNode["key"],
+  type: VirtNode["type"],
+  props: VirtNode["props"] | null,
+  key: VirtNode["key"],
   _isStaticChildren: boolean,
-  source: VNode["source"],
+  source: VirtNode["source"],
   _self: any,
-): VNode {
+): VirtNode {
   return { $$typeof: REACT_ELEMENT_TYPE, type, key, props: {...props, children: props?.children}, source };
 }

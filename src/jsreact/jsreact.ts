@@ -79,7 +79,7 @@ type PartialNamedExoticComponent<P = {}> = {
 type PortalVNode = Omit<React.ReactPortal, "key"> & { $$typeof: symbol; key?: React.ReactPortal["key"]; props: Element };
 type ReactElement<P = unknown, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> = React.ReactElement<P, T>;
 export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
-export type VNode = Omit<ReactElement<DOMProps, ElementType>, "key" | "type"> & {
+export type VirtNode = Omit<ReactElement<DOMProps, ElementType>, "key" | "type"> & {
   type: ElementType;
   $$typeof: symbol;
   key?: ReactElement["key"];
@@ -119,32 +119,28 @@ type ComponentClass<P = {}, S = {}, SS = any> = {
   readonly contextType?: Context<any>;
   readonly defaultProps?: Partial<P>;
   getDerivedStateFromProps(props: P, state: S): Partial<P> | null;
-  constructor (props: P, _context?: any): Component<P, S, SS>;
-  (props: P, _context?: any): Component<P, S, SS>;
+  constructor (props: P, _context?: any): ComponentInstance<P, S, SS>;
+  (props: P, _context?: any): ComponentInstance<P, S, SS>;
 };
-type ComponentInstance<P = {}, S = {}, SS = any> = Component<P, S, SS> & Pick<React.Component, "componentDidMount" | "componentDidUpdate" | "componentWillUnmount">;
-export class Component<P = {}, S = {}, SS = any> implements React.Component<P, S, SS> {
-  props: React.Component<P, S, SS>["props"];
-  state: React.Component<P, S, SS>["state"];
-  context: React.Component<P, S, SS>["context"];
-  constructor(props: P, _context?: any) {
-    if (_context != null) throw new Error("Not implemented: Component(props, context)");
-    this.props = props;
-    this.state = {} as S;
-  }
-  setState(
-    _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
-    _callback: any
-  ): void {
-    throw new Error("BUG: Component.setState is not set");
-  }
-  forceUpdate(): void {
-    throw new Error("BUG: Component.forceUpdate is not set");
-  }
-  render(): ReactNode {
-    return null;
-  }
+type ComponentInstance<P = {}, S = {}, SS = any> = React.Component<P, S, SS>;
+type Writable<T> = { -readonly [K in keyof T]: T[K] };
+const Component = function ComponentImpl<P = {}, S = {}, SS = any>(this: Writable<ComponentInstance<P, S, SS>>, props: P, _context: any) {
+  if (_context != null) throw new Error("Not implemented: Component(props, context)");
+  this.props = props;
+  this.state = this.state ?? {};
+} as ComponentClass;
+Component.prototype.setState = function<P = {}, S = {}, SS = any>(
+  this: ComponentClass<P, S, SS>,
+  _newState: S | Pick<S, keyof S> | ((prevState: Readonly<S>, props: Readonly<P>) => S | Pick<S, keyof S> | null) | null,
+  _callback: any,
+) {
+  throw new Error("BUG: Component.setState is not set");
 }
+Component.prototype.forceUpdate = function<P = {}, S = {}, SS = any>(this: ComponentClass<P, S, SS>): void {
+  throw new Error("BUG: Component.forceUpdate is not set");
+}
+Component.prototype.render = function(): ReactNode {return null}
+export {Component};
 function isComponentClass(type: any): type is (new(props: any, context: any) => React.Component<any, any>) {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
@@ -170,15 +166,15 @@ export function findDOMNode(classComponent: ComponentInstance) {
 /** NOTE: libraries use this to detect React features... */
 export const version = 19;
 export function isValidElement(value: any): value is ReactElement<any, any> {
-  return value != null && typeof value === "object" && (value as Partial<VNode>).$$typeof === REACT_ELEMENT_TYPE;
+  return value != null && typeof value === "object" && (value as Partial<VirtNode>).$$typeof === REACT_ELEMENT_TYPE;
 }
-export function createElement(type: ElementType, props: VNode["props"] | null = null, ...argChildren: ReactNode[]): VNode {
+export function createElement(type: ElementType, props: VirtNode["props"] | null = null, ...argChildren: ReactNode[]): VirtNode {
   props = props ?? {};
   const { key, ...rest } = props;
   const children = "children" in props
     ? props.children
     : argChildren.length === 1 ? argChildren[0] : (argChildren.length === 0 ? null : argChildren);
-  return { $$typeof: REACT_ELEMENT_TYPE, type, key: key as VNode["key"], props: {...rest, children} };
+  return { $$typeof: REACT_ELEMENT_TYPE, type, key: key as VirtNode["key"], props: {...rest, children} };
 }
 export function cloneElement(vnode: ReactNodeSync, childProps: DOMProps | null): ValueOrVNode {
   if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
@@ -239,7 +235,7 @@ export function useContext<T>(context: Context<T>): T {
 }
 // createPortal()
 const PORTAL_SYMBOL = Symbol.for("react.portal");
-export function createPortal(children: ReactNode, node: Element, key?: VNode["key"]): PortalVNode {
+export function createPortal(children: ReactNode, node: Element, key?: VirtNode["key"]): PortalVNode {
   return { $$typeof: REACT_ELEMENT_TYPE, type: makeExoticComponent(PORTAL_SYMBOL), key, props: node, children };
 }
 // React.Children
@@ -575,7 +571,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       const $$typeof = (leafType as NamedExoticComponent).$$typeof;
       switch ($$typeof) {
       case MEMO_SYMBOL:
-        const prevNode = component.node as VNode|undefined;
+        const prevNode = component.node as VirtNode|undefined;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
           return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
@@ -586,7 +582,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
         if ($$typeof === CONTEXT_PROVIDER_SYMBOL) {
           context = leafType as Context<any>;
           prevContextValue = context._currentValue;
-          context._currentValue = (leaf as VNode).props.value;
+          context._currentValue = (leaf as VirtNode).props.value;
         }
         if (isComponentClass(leafType)) {
           // class props
@@ -597,7 +593,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
             }
           }
           const {contextType, defaultProps, getDerivedStateFromProps} = leafType as unknown as ComponentClass;
-          let instance = component.instance as ComponentInstance;
+          let instance = component.instance as Writable<ComponentInstance>;
           const instanceProps = {...defaultProps, ...leaf.props as object};
           const instanceIsNew = instance == null;
           if (instanceIsNew) {
@@ -685,7 +681,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       let node: Partial<ValueOrVNode> = child;
       let source = "";
       if (isValidElement(child)) {
-        const vnode = {...child} as VNode;
+        const vnode = {...child} as VirtNode;
         source = vnode.source != null ? `${vnode.source?.fileName}:${vnode.source?.lineNumber}` : "";
         delete vnode.key;
         delete vnode.source;
@@ -710,15 +706,15 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       childOrder.push(component);
     } else {
       const isSvgElement = parentIsSvgElement || desiredElementType === "svg";
-      applyDOMProps(component, desiredElementType, (leaf as VNode).props, isSvgElement);
+      applyDOMProps(component, desiredElementType, (leaf as VirtNode).props, isSvgElement);
       parentIsSvgElement = isSvgElement && (desiredElementType !== "foreignObject");
-      if (isElementNew) setRef((child as VNode).props.ref, component.element);
+      if (isElementNew) setRef((child as VirtNode).props.ref, component.element);
       childOrder.push(component);
       childOrder = [];
     }
   }
   // render children
-  const children: ReactNodeSync = leaf === child ? (leaf as VNode)?.props?.children as ReactNodeSync : leaf;
+  const children: ReactNodeSync = leaf === child ? (leaf as VirtNode)?.props?.children as ReactNodeSync : leaf;
   //console.log("ayaya.leaf", {key, children});
   jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
   if (context != null) context._currentValue = prevContextValue;
@@ -777,7 +773,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
         setRef(ref, null);
         // remove the element
         if (removeChildrenFromDOM) {
-          const $$typeof = ((component.node as VNode|null)?.type as NamedExoticComponent|null)?.$$typeof;
+          const $$typeof = ((component.node as VirtNode|null)?.type as NamedExoticComponent|null)?.$$typeof;
           if ($$typeof === PORTAL_SYMBOL) {
             removeChildrenFromDOM = true;
           } else {
