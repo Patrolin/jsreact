@@ -835,15 +835,15 @@ let renderCount = 0;
 export function getRenderCount(): number {return renderCount}
 function rerender(component: JsReactComponent) {
   let whyDidYouRender: string|null = null;
-  if (WHY_DID_YOU_RENDER_PREFIX != null) {
-    whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami(), WHY_DID_YOU_RENDER_VERBOSE);
-  }
+  if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError("", whoami(), WHY_DID_YOU_RENDER_VERBOSE);
   const rootComponent = component.root;
   const jsreact$renderNow = async () => {
     try {
       // print debug info
       let infiniteLoop: boolean | string = ++renderCount >= INFINITE_LOOP_COUNT! && INFINITE_LOOP_COUNT != null;
       if (whyDidYouRender != null) {
+        const infiniteLoopString = INFINITE_LOOP_COUNT != null ? ` (${renderCount})` : "";
+        whyDidYouRender = `${WHY_DID_YOU_RENDER_PREFIX}Render${infiniteLoopString} caused by:${whyDidYouRender}`
         console.debug(`${(performance.now()).toFixed(0)} ms ${whyDidYouRender}`);
       }
       if (infiniteLoop) {
@@ -873,6 +873,7 @@ function rerender(component: JsReactComponent) {
       rootComponent.flags = (rootComponent.flags & ~FLAGS_IS_RENDERING) | FLAGS_RERENDERED_THIS_FRAME;
       requestAnimationFrame(() => {
         rootComponent.flags = rootComponent.flags & ~FLAGS_RERENDERED_THIS_FRAME;
+        if ((rootComponent.flags & FLAGS_WILL_RERENDER) === 0) renderCount = 0;
       });
       // print debug info
       const renderMs = performance.now() - renderStartMs;
