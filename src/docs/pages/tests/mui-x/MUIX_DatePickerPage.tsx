@@ -1,4 +1,4 @@
-import { DatePicker, DatePickerProps, DateTimePicker, DateTimePickerProps, LocalizationProvider, PickerValidDate } from "../../../mock/mui-x/x-date-pickers";
+import { DatePicker, DatePickerProps, DateTimePicker, DateTimePickerProps, LocalizationProvider } from "../../../mock/mui-x/x-date-pickers";
 import { AdapterDayjs } from "../../../mock/mui-x/x-date-pickers/AdapterDayjs";
 import { csCZ } from "../../../mock/mui-x/x-date-pickers/locales";
 import dayjs from "dayjs";
@@ -39,7 +39,8 @@ function DatePickerInput<TEnableAccessibleFieldDOMStructure extends boolean = tr
 export const MUIX_DatePickerPage: React.FC = () => {
   const [date, setDate] = useState(dayjs(new Date(Math.random() * 1e6)));
   return <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="cs">
-    <DatePickerInput sx={{marginTop: 1}} label="Date" value={date} onChange={(newDate) => setDate(newDate)} />
+    <DatePickerInput sx={{marginTop: 1}} label="Date" />
+    {/*<DatePickerInput sx={{marginTop: 1}} label="Date" value={date} onChange={(newDate) => setDate(newDate)} />*/}
     {/*<DatePickerInput sx={{marginTop: 1}} label="Datetime" variant="datetime" value={date} onChange={(newDate) => setDate(newDate)} />*/}
   </LocalizationProvider>
 }

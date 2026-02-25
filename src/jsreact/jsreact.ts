@@ -716,11 +716,10 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       createElementAndApplyDOMProps(component, desiredElementType, (leaf as VirtNode).props, isSvgElement);
       parentIsSvgElement = isSvgElement && (desiredElementType !== "foreignObject");
       const ref = (child as VirtNode).props.ref;
-      console.log("ayaya.setRef", component);
       if (isElementNew) setRef(ref, component.element);
       else {
-        setRef(ref, null);
-        setRef(ref, component.element);
+        //setRef(ref, null);
+        //setRef(ref, component.element);
       }
       childOrder.push(component);
       childOrder = [];
@@ -1063,5 +1062,17 @@ export function useId(_idProp_legacy: any): string {
 }
 export function useDebugValue<T>(_value: T, _formatter?: (value: T) => any) {
   // TODO: maybe store the debug value?
+}
+export function useReducer<S, A>(reducer: (state: S, action: A) => S, initialArg: S, init?: (initialArg: S) => S): [S, (action: A) => void] {
+  const prevHookCount = $component.hooks.length;
+  const hook = useHook({ state: undefined as S, dispatch: (_action: A) => {} });
+  if ($component.hookIndex > prevHookCount) {
+    if (init != null) hook.state = init(initialArg);
+    else hook.state = initialArg;
+    hook.dispatch = (action: A) => setTimeout(() => {
+      hook.state = reducer(hook.state, action);
+    }, 0);
+  }
+  return [hook.state, hook.dispatch];
 }
 // TODO: more hooks?
