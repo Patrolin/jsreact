@@ -882,7 +882,7 @@ function rerender(component: JsReactComponent) {
     } catch (error: any) {
       if (!IS_PRODUCTION) {
         let message = error;
-        if (message instanceof Error) message = prettifyError(error, error.stack ?? "");
+        if (message instanceof Error) message = prettifyError(error, error.stack ?? "", WHY_DID_YOU_RENDER_VERBOSE);
         replaceDocumentWithError(`Uncaught ${message}`, false, rootComponent.element as HTMLElement);
       }
       throw error;
