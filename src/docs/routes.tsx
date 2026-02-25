@@ -3,13 +3,15 @@ import { BigFormWithMemo } from "./pages/benchmarks/BigFormWithMemo";
 import { BooleanPage } from "./pages/tests/BooleanPage";
 import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
 import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
+import { MUIX_DatePickerPage } from "./pages/tests/mui-x/MUIX_DatePickerPage";
 import { MUI_ButtonPage } from "./pages/tests/mui/MUI_ButtonPage";
-import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInput";
+import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInputPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
 import { MUI_SliderPage } from "./pages/tests/mui/MUI_SliderPage";
 import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
 import { MUI_TooltipPage } from "./pages/tests/mui/MUI_TooltipPage";
+import { MUI_useForkRefPage } from "./pages/tests/mui/MUI_useForkRefPage";
 import { RTG_CSSTransitionPage } from "./pages/tests/rtg/RTG_CSSTransitionPage";
 import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
 import { SubmitTest } from "./pages/tests/SubmitTest";
@@ -84,6 +86,16 @@ export const routes: Route[] = [
     path: "/outlinedInput",
     label: "MUI OutlinedInput",
     component: MUI_OutlinedInputPage,
+  },
+  {
+    path: "/forkRef",
+    label: "MUI useForkRef()",
+    component: MUI_useForkRefPage,
+  },
+  {
+    path: "/muix-datePicker",
+    label: "MUI X DatePicker",
+    component: MUIX_DatePickerPage,
   },
   {
     path: "/benchmarks/bigForm",

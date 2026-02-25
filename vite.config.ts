@@ -46,7 +46,7 @@ function getVitePreset(mode: string): VitePreset {
       ],
       plugins: [],
       tsConfig: require("./tsconfig.json"),
-      excludeOptimizeDeps: ["react", "react-dom"],
+      excludeOptimizeDeps: ["react", "react-dom", "preact", "preact-iso"],
     };
   } break;
   }
@@ -61,9 +61,10 @@ export default defineConfig(({mode}) => {
     resolve: { alias: [
       ...aliases,
       { find: "@", replacement: path.resolve(__dirname, "src") },
+      { find: "@mui/utils", replacement: path.resolve(__dirname, "src/docs/mock/mui-utils") }
     ] },
     esbuild: { tsconfigRaw: tsConfig },
-    optimizeDeps: { exclude: excludeOptimizeDeps },
+    optimizeDeps: { exclude: [...excludeOptimizeDeps, "@mui/utils"] },
     server: { port: 3000, strictPort: true },
     define: {
       // support for mock/mui-material

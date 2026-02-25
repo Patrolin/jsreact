@@ -1,10 +1,10 @@
-// jsreact v1.0
+// jsreact v1.0.0
 import type React from "react";
 
 // utils
 /** Replace `document.body` with the `message` while avoiding XSS. */
 function replaceDocumentWithError(message: string, throwError: boolean, rootElement: HTMLElement) {
-  for (let child of rootElement.childNodes) child.remove();
+  for (const child of [...rootElement.childNodes]) child.remove();
   const h3 = document.createElement("h3");
   h3.className = "jsreact-error";
   h3.style.fontFamily = "Consolas, sans-serif";
@@ -26,18 +26,19 @@ function parseEnvNumber(name: string, value: string|undefined): number|undefined
 function parseEnvBoolean(name: string, value: string|undefined): boolean|undefined {
   if ((value ?? "") === "") return undefined;
   if (value === "1" || value === "true" || value === "yes" || value === "y" || value === "Y") return true;
-  if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return true;
+  if (value === "0" || value === "false" || value === "no" || value === "n" || value === "N") return false;
   replaceDocumentWithError(`Invalid boolean in env: ${name}=${value}`, true, document.body);
 }
 
 // env
 const IS_PRODUCTION = parseEnvBoolean("JSREACT_IS_PRODUCTION", env.JSREACT_IS_PRODUCTION) ?? (env.MODE === "production");
 const WHY_DID_YOU_RENDER_PREFIX = mapEnvString(env.JSREACT_WHY_DID_YOU_RENDER_PREFIX);
+const WHY_DID_YOU_RENDER_VERBOSE = parseEnvBoolean("JSREACT_WHY_DID_YOU_RENDER_VERBOSE", env.JSREACT_WHY_DID_YOU_RENDER_VERBOSE) ?? false;
 const WARN_RENDER_MS = parseEnvNumber("JSREACT_WARN_RENDER_MS", env.JSREACT_WARN_RENDER_MS) ?? 100;
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
-const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
 const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
+const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -150,7 +151,7 @@ function isComponentClass(type: any): type is ComponentClass {
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
 function findDOMNode_Component(classComponent: ComponentInstance, component: JsReactComponent): JsReactComponent | undefined {
   if (component.instance === classComponent) return component;
-  for (let c of Object.values(component.children)) {
+  for (const c of Object.values(component.children)) {
     const search = findDOMNode_Component(classComponent, c);
     if (search != null) return search;
   }
@@ -189,7 +190,7 @@ const MEMO_SYMBOL = Symbol.for("react.memo");
 type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
 function defaultArePropsEqual(a: Record<string, any>, b: Record<string, any>) {
   const keys = new Set(Object.keys(a));
-  for (let k of Object.keys(b)) keys.add(k);
+  for (const k of Object.keys(b)) keys.add(k);
   return Array.from(keys).some(k => Object.is(a[k], b[k]));
 }
 export function memo(component: React.JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
@@ -244,17 +245,17 @@ export function createPortal(children: ReactNode, node: Element, key?: VirtNode[
 // React.Children
 function Children$forEach(children: ReactNode, fn: (child: ReactNode) => void) {
   if (isIterable(children)) {
-    for (let c of children) Children$forEach(c, fn);
+    for (const c of children) Children$forEach(c, fn);
   } else fn(children);
 }
 function Children$toArrayExcludingNullsy(children: ReactNode, out: ReactNode[]) {
   if (isIterable(children)) {
-    for (let c of children) Children$toArrayExcludingNullsy(c, out);
+    for (const c of children) Children$toArrayExcludingNullsy(c, out);
   } else if (children != null) out.push(children);
 }
 function Children$toArrayExcludingNullsyAndBoolean(children: ReactNode, out: ReactNode[]) {
   if (isIterable(children)) {
-    for (let c of children) Children$toArrayExcludingNullsyAndBoolean(c, out);
+    for (const c of children) Children$toArrayExcludingNullsyAndBoolean(c, out);
   } else if (children != null && typeof children != "boolean") out.push(children);
 }
 export const Children = {
@@ -431,7 +432,7 @@ function makeReactEventHandler(callback: ReactEventHandler): EventHandler<Event>
   }) as EventHandler;
 }
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-function applyDOMProps(component: JsReactComponent, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
+function createElementAndApplyDOMProps(component: JsReactComponent, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
   const {prevEventHandlers} = component;
   let element = component.element;
   if (element == null) {
@@ -442,7 +443,7 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   // style
   const {ref, key, htmlFor, style, className, children, ...rest} = props;
   if (style != null) {
-    for (let [k, v] of Object.entries(style)) {
+    for (const [k, v] of Object.entries(style)) {
       /* NOTE: pass through `--${string}` and `-${string}` directly, else add "px" to non-unitless numbers. */
       if (k.startsWith("-")) (element as HTMLElement).style.setProperty(k, v);
       else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k as any] = v;
@@ -452,9 +453,9 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   // className
   const prevClassList = component.hooks as string[];
   const newClassList = Array.isArray(className) ? className : (className ? className.split(" ") : []);
-  for (let newClass of newClassList) element.classList.add(newClass);
+  for (const newClass of newClassList) element.classList.add(newClass);
   const newClassList_set = new Set(newClassList);
-  for (let prevClass of prevClassList) {
+  for (const prevClass of prevClassList) {
     if (!newClassList_set.has(prevClass)) element.classList.remove(prevClass);
   }
   component.hooks = newClassList;
@@ -471,15 +472,19 @@ function applyDOMProps(component: JsReactComponent, desiredElementType: string, 
   }
   for (const [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
-      const type = key.slice(2).toLowerCase();
-      const prevEventHandler = prevEventHandlers[type];
+      const isCapturing = key.endsWith("Capture");
+      const type = key.slice(2, isCapturing ? -7 : undefined).toLowerCase();
+      const prevEventHandler = prevEventHandlers[key];
       const rawEventHandler = value as ReactEventHandler;
       const mappedEventHandler = makeReactEventHandler(rawEventHandler);
-      prevEventHandlers[type] = {raw: rawEventHandler, mapped: mappedEventHandler};
+      prevEventHandlers[key] = {raw: rawEventHandler, mapped: mappedEventHandler};
       if (prevEventHandler?.raw == rawEventHandler) continue;
       if (prevEventHandler?.mapped != null) element.removeEventListener(type, prevEventHandler.mapped);
       if (mappedEventHandler != null) {
-        element.addEventListener(type, mappedEventHandler, { passive: PASSIVE_EVENTS.has(type) });
+        element.addEventListener(type, mappedEventHandler, {
+          passive: PASSIVE_EVENTS.has(type),
+          capture: isCapturing,
+        });
       }
     } else {
       if (HTML_BOOLEAN_ATTRIBUTES.has(key)) {
@@ -508,7 +513,7 @@ function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
 function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSync, childOrder: JsReactComponent[], parentIsSvgElement: boolean) {
   // recurse
   if (isIterable(child)) {
-    for (let c of child) jsreact$renderJsxChildren(parent, c as ReactNodeSync, childOrder, parentIsSvgElement);
+    for (const c of child) jsreact$renderJsxChildren(parent, c as ReactNodeSync, childOrder, parentIsSvgElement);
     return;
   }
   // get component state
@@ -588,7 +593,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
         }
         if (isComponentClass(leafType)) {
           // class props
-          for (let key of Object.keys(leafType)) {
+          for (const key of Object.keys(leafType)) {
             if (LEGACY_COMPONENT_STATIC_SUPPORTED[key] === false) {
               console.error("Component has:", Object.keys(leafType).filter(v => v in LEGACY_COMPONENT_STATIC_SUPPORTED))
               throw `Not implemented: Component.${key}`;
@@ -604,7 +609,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
           }
           instance.context = contextType != null ? useContext(contextType) : undefined;
           // instance props
-          for (let key of Object.keys(leafType.prototype)) {
+          for (const key of Object.keys(leafType.prototype)) {
             if (LEGACY_COMPONENT_SUPPORTED[key] === false) {
               console.error("Component has:", Object.keys(leafType.prototype).filter(v => v in LEGACY_COMPONENT_SUPPORTED))
               throw `Not implemented: Component.${key}`;
@@ -708,9 +713,15 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       childOrder.push(component);
     } else {
       const isSvgElement = parentIsSvgElement || desiredElementType === "svg";
-      applyDOMProps(component, desiredElementType, (leaf as VirtNode).props, isSvgElement);
+      createElementAndApplyDOMProps(component, desiredElementType, (leaf as VirtNode).props, isSvgElement);
       parentIsSvgElement = isSvgElement && (desiredElementType !== "foreignObject");
-      if (isElementNew) setRef((child as VirtNode).props.ref, component.element);
+      const ref = (child as VirtNode).props.ref;
+      console.log("ayaya.setRef", component);
+      if (isElementNew) setRef(ref, component.element);
+      else {
+        setRef(ref, null);
+        setRef(ref, component.element);
+      }
       childOrder.push(component);
       childOrder = [];
     }
@@ -727,7 +738,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   const parentElement = parent.element;
   if (parentElement != null && !(parentElement instanceof Text)) {
     let prevElement = null as Element|null;
-    for (let c of childOrder) {
+    for (const c of childOrder) {
       const childElement = c.element!;
       if (prevElement != null) {
         if (prevElement.nextSibling !== childElement) prevElement.after(childElement);
@@ -739,11 +750,11 @@ function jsreact$renderChildren(parent: JsReactComponent, children: ReactNodeSyn
   }
 }
 function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeChildrenFromDOM: boolean) {
-  for (let component of Object.values(parent.children)) {
+  for (const component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; /* delete old state */
       // run cleanup code
-      for (let hook of component.hooks as Hook[]) {
+      for (const hook of component.hooks as Hook[]) {
         const hookType = hook.$$typeof;
         switch (hookType) {
         case undefined: {} break;
@@ -780,7 +791,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
   }
 }
 // debug tools
-function whoami() {
+export function whoami(): string {
   // NOTE: firefox is trash, so we have to print one level lower than we would like...
   // @ts-ignore
   if (Error.captureStackTrace) {
@@ -796,7 +807,7 @@ function whoami() {
     return lines.join("\n");
   }
 }
-function prettifyError(prefix: any, error: string|undefined|null) {
+export function prettifyError(prefix: any, error: string|undefined|null, verbose: boolean): string {
   let lines = (error ?? "").split("\n");
   const acc: string[] = [];
   if (lines[0].includes("Error")) {
@@ -808,7 +819,7 @@ function prettifyError(prefix: any, error: string|undefined|null) {
   let haveEllipsis = false;
   for (let line of lines) {
     if (line === "") continue;
-    if (line.includes("jsreact$")) {
+    if (line.includes("jsreact$") && !verbose) {
       if (!haveEllipsis) {
         acc.push("    ...");
         haveEllipsis = true;
@@ -826,7 +837,7 @@ export function getRenderCount(): number {return renderCount}
 function rerender(component: JsReactComponent) {
   let whyDidYouRender: string|null = null;
   if (WHY_DID_YOU_RENDER_PREFIX != null) {
-    whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami());
+    whyDidYouRender = prettifyError(`${WHY_DID_YOU_RENDER_PREFIX}Render caused by:`, whoami(), WHY_DID_YOU_RENDER_VERBOSE);
   }
   const rootComponent = component.root;
   const jsreact$renderNow = async () => {
@@ -853,9 +864,9 @@ function rerender(component: JsReactComponent) {
         legacySetStateCallbacks: [],
         useLayoutEffects: [],
       }
-      for (let hook of legacyComponentUpdates) hook.callback();
-      for (let hook of legacySetStateCallbacks) hook.callback();
-      for (let hook of useLayoutEffects) {
+      for (const hook of legacyComponentUpdates) hook.callback();
+      for (const hook of legacySetStateCallbacks) hook.callback();
+      for (const hook of useLayoutEffects) {
           hook.cleanup?.();
           hook.cleanup = hook.setup();
       };
@@ -979,9 +990,7 @@ export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   if ($component.hookIndex > prevHookCount) hook.current = initialValue as T;
   return hook;
 }
-function isCallback<T, C extends Function>(value: T | C): value is C {
-  return typeof value === "function";
-}
+function isCallback<T, C extends Function>(value: T | C): value is C {return typeof value === "function"}
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
   const prevHookCount = $component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
