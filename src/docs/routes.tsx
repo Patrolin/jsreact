@@ -13,6 +13,7 @@ import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
 import { MUI_TooltipPage } from "./pages/tests/mui/MUI_TooltipPage";
 import { MUI_useForkRefPage } from "./pages/tests/mui/MUI_useForkRefPage";
 import { RTG_CSSTransitionPage } from "./pages/tests/rtg/RTG_CSSTransitionPage";
+import { RTG_TransitionGroupPage } from "./pages/tests/rtg/RTG_TransitionGroupPage";
 import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
 import { SubmitTest } from "./pages/tests/SubmitTest";
 
@@ -51,6 +52,11 @@ export const routes: Route[] = [
     path: "/transition",
     label: "react-transition-group Transition",
     component: RTG_TransitionPage,
+  },
+  {
+    path: "/transitionGroup",
+    label: "react-transition-group TransitionGroup",
+    component: RTG_TransitionGroupPage,
   },
   {
     path: "/portal",

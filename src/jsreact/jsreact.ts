@@ -658,6 +658,9 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: ReactNodeSyn
       case FORWARD_REF_SYMBOL: {
         const {ref = null, ...rest} = leaf.props as DOMProps;
         leaf = (leafType as unknown as ForwardRefComponent)(rest, ref) as ValueOrVNode;
+        if (keyRight.includes("PickersCalendarHeader")) {
+          console.log("ayaya.picker.foo", {keyRight, leafType, leaf})
+        }
       } break;
       case PORTAL_SYMBOL: {
         const portal = leaf as Portal;
@@ -983,6 +986,10 @@ export function useLegacyWillUnmount(callback: ((this: ComponentInstance) => voi
 export function useImperativeHandle<T>(ref: Ref<T> | undefined, createHandle: () => T, dependencies?: any[]) {
   const hook = useHook({ prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) setRef(ref, createHandle());
+}
+/** NOTE: for legacy components */
+export function createRef<T = undefined>(initialValue?: T): MutableRef<T> {
+  return Object.seal({current: initialValue as T});
 }
 export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
   const prevHookCount = $component.hooks.length;

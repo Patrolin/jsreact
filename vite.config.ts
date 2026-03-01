@@ -61,10 +61,12 @@ export default defineConfig(({mode}) => {
     resolve: { alias: [
       ...aliases,
       { find: "@", replacement: path.resolve(__dirname, "src") },
-      { find: "@mui/utils", replacement: path.resolve(__dirname, "src/docs/mock/mui-utils") }
+      { find: "@mui/material", replacement: path.resolve(__dirname, "src/docs/mock/mui-material") },
+      { find: "@mui/utils", replacement: path.resolve(__dirname, "src/docs/mock/mui-utils") },
+      { find: "react-transition-group", replacement: path.resolve(__dirname, "src/docs/mock/react-transition-group") },
     ] },
     esbuild: { tsconfigRaw: tsConfig },
-    optimizeDeps: { exclude: [...excludeOptimizeDeps, "@mui/utils"] },
+    optimizeDeps: { exclude: [...excludeOptimizeDeps, "@mui/material", "@mui/utils"] },
     server: { port: 3000, strictPort: true },
     define: {
       // support for mock/mui-material
