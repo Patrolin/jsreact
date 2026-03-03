@@ -73,7 +73,6 @@ export type JSXElementConstructor<P = any> = {
 };
 export type ElementType<P = any> = string | JSXElementConstructor<P>;
 export type JsReactNode = number | bigint | boolean | null | undefined | JsReactElement | JsReactNode[];
-// FOOO
 
 // private types
 type NamedExoticComponent<P = any> = {
