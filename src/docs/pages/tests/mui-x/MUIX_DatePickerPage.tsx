@@ -37,7 +37,8 @@ function DatePickerInput<TEnableAccessibleFieldDOMStructure extends boolean = tr
   }
 };
 export const MUIX_DatePickerPage: React.FC = () => {
-  const [date, setDate] = useState(new Date(0));
+  //const [date, setDate] = useState(new Date(0));
+  const [date, setDate] = useState(null as Date|null);
   return <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="cs">
     <DatePickerInput sx={{marginTop: 1}} label="Date" value={date} onChange={(newDate) => setDate(newDate)} />
     {/*<DatePickerInput sx={{marginTop: 1}} label="Datetime" variant="datetime" value={date} onChange={(newDate) => setDate(newDate)} />*/}
