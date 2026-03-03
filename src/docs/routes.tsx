@@ -12,10 +12,11 @@ import { MUI_SliderPage } from "./pages/tests/mui/MUI_SliderPage";
 import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
 import { MUI_TooltipPage } from "./pages/tests/mui/MUI_TooltipPage";
 import { MUI_useForkRefPage } from "./pages/tests/mui/MUI_useForkRefPage";
+import { ReactIsTestPage } from "./pages/tests/react-is/ReactIs_TestPage";
 import { RTG_CSSTransitionPage } from "./pages/tests/rtg/RTG_CSSTransitionPage";
 import { RTG_TransitionGroupPage } from "./pages/tests/rtg/RTG_TransitionGroupPage";
 import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
-import { SubmitTest } from "./pages/tests/SubmitTest";
+import { SubmitCorrectnessTest } from "./pages/tests/SubmitCorrectnessTest";
 
 type Route = {
   path: string;
@@ -29,9 +30,9 @@ export const routes: Route[] = [
     component: BooleanPage,
   },
   {
-    path: "/submit",
-    label: "Submit",
-    component: SubmitTest,
+    path: "/submitCorrectness",
+    label: "Submit correctness",
+    component: SubmitCorrectnessTest,
   },
   {
     path: "/componentClass",
@@ -42,6 +43,11 @@ export const routes: Route[] = [
     path: "/memo",
     label: "React.memo()",
     component: MemoComponentPage,
+  },
+  {
+    path: "/react-is",
+    label: "react-is test",
+    component: ReactIsTestPage,
   },
   {
     path: "/css-transition",

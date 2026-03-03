@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 
-export const SubmitTest: FC = () => {
+export const SubmitCorrectnessTest: FC = () => {
   const [username, setUsername] = useState("");
   const start = performance.now();
   while (performance.now() - start < 1000) {}

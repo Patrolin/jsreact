@@ -28,13 +28,16 @@
     "@mui/x-date-pickers": "^8.27.2",
     "@preact/preset-vite": "^2.10.3",
     "@types/node": "^25.2.0",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-is": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.3",
     "dayjs": "^1.11.19",
     "eslint": "^9.39.2",
     "preact": "^10.28.3",
     "preact-iso": "^2.11.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.4",
+    "react-is": "^19.2.4",
     "typescript": "^5.9.3",
     "vite": "^7.0.4"
   }
