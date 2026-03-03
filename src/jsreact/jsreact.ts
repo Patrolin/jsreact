@@ -81,10 +81,10 @@ type NamedExoticComponent<P = any> = {
   readonly $$typeof: symbol;
   displayName?: string;
 };
-export const REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element");
-export const REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element");
+const TYPE_LEGACY_ELEMENT = Symbol.for("react.element");
+export const TYPE_ELEMENT = Symbol.for("react.transitional.element");
 export type JsReactElement<P = any, T extends string | symbol | JSXElementConstructor<P> = string | symbol | JSXElementConstructor<P>> = {
-  /** REACT_ELEMENT_TYPE, or PORTAL_TYPE */
+  /** TYPE_ELEMENT_TYPE | TYPE_PORTAL */
   $$typeof: symbol;
   /** string | symbol | Component | NamedExoticComponent */
   type: T;
@@ -185,7 +185,7 @@ export function createElement(type: ElementType, props: JsReactElement<PropsWith
   const children = "children" in props
     ? props.children
     : argChildren.length === 1 ? argChildren[0] : (argChildren.length === 0 ? null : argChildren);
-  return { $$typeof: REACT_ELEMENT_TYPE, type, key: key as JsReactElement["key"], props: {...rest, children} };
+  return { $$typeof: TYPE_ELEMENT, type, key: key as JsReactElement["key"], props: {...rest, children} };
 }
 export function cloneElement(vnode: JsReactNode, childProps: DOMProps | null): JsReactNode {
   if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
@@ -196,8 +196,8 @@ export function typeOf(value: any): symbol|undefined {
   if (typeof value === "object" && value !== null) {
     const $$typeof = (value as JsReactElement).$$typeof;
     switch ($$typeof) {
-    case REACT_LEGACY_ELEMENT_TYPE:
-    case REACT_ELEMENT_TYPE: {
+    case TYPE_LEGACY_ELEMENT:
+    case TYPE_ELEMENT: {
       const type = (value as JsReactElement).type;
       if (typeof type === "symbol") return type;
       else return (type as NamedExoticComponent|undefined)?.$$typeof as symbol|undefined;
@@ -236,7 +236,7 @@ export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: o
   return _makeExoticComponent(EXOTIC_MEMO, memoComponent as FC);
 }
 // forwardRef()
-export const EXOTIC_FORWARD_REF = Symbol.for("react.forward_ref");
+const EXOTIC_FORWARD_REF = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
   const forwardRefComponent = render as ForwardRefComponent<P, R>;
   forwardRefComponent.displayName = render.displayName || render.name;
@@ -261,10 +261,10 @@ export function useContext<T>(context: Context<T>): T {
   return context._currentValue;
 }
 // createPortal()
-const PORTAL_TYPE = Symbol.for("react.portal");
+const TYPE_PORTAL = Symbol.for("react.portal");
 type PortalElement = JsReactElement<Element, JSXElementConstructor>;
 export function createPortal(children: JsReactNode, node: Element, key?: JsReactElement["key"]): PortalElement {
-  return { $$typeof: PORTAL_TYPE, type: () => children, key, props: node as any };
+  return { $$typeof: TYPE_PORTAL, type: () => children, key, props: node as any };
 }
 // React.Children
 function Children$forEach(children: JsReactNode, fn: (child: JsReactNode) => void) {
@@ -607,7 +607,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: JsReactNode,
       // FC or exotic component
       const $$typeof = typeOf(leaf);
       switch ($$typeof) {
-      case PORTAL_TYPE: {
+      case TYPE_PORTAL: {
         const portal = leaf as unknown as PortalElement;
         leaf = portal.type(undefined);
         component.element = portal.props as Element; /* NOTE: I don't think anyone is portaling into an svg element here */
@@ -807,7 +807,7 @@ function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, r
         // remove the element
         if (removeChildrenFromDOM) {
           const $$typeof = (component.node as JsReactElement|null)?.$$typeof;
-          if ($$typeof === PORTAL_TYPE) {
+          if ($$typeof === TYPE_PORTAL) {
             removeChildrenFromDOM = true;
           } else {
             element.remove();

@@ -1,7 +1,7 @@
-import { REACT_ELEMENT_TYPE, type VirtNode } from "./jsreact";
+import { TYPE_ELEMENT, type JsReactElement } from "./jsreact";
 export { Fragment } from "./jsreact";
 
-export function jsx(type: VirtNode["type"], props: VirtNode["props"] | null, key: VirtNode["key"]): VirtNode {
-  return { $$typeof: REACT_ELEMENT_TYPE, type, key, props: {...props, children: props?.children} };
+export function jsx(type: JsReactElement["type"], props: JsReactElement["props"] | null, key: JsReactElement["key"]): JsReactElement {
+  return { $$typeof: TYPE_ELEMENT, type, key, props: {...props, children: props?.children} };
 }
 export const jsxs = jsx;
