@@ -32,7 +32,7 @@ const TextFieldMemo: FC<TextFieldProps> = (props) => {
   for (const k of Object.keys(cache.current.staticEventHandlers)) {
     cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
-  const didBlur = cache.current.didBlur;
+  const didBlur = cache.current.didBlur; /* NOTE: MUI TextField needs to rerender an extra time after blur */
   cache.current.didBlur = false;
   return <TextFieldMemoImplementation {...mappedProps} didBlur={didBlur} />;
 };
