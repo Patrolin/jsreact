@@ -155,14 +155,14 @@ function isComponentClass(type: any): type is ComponentClass {
   return typeof type === "function" && type.prototype != null && typeof type.prototype.render === "function";
 }
 /** NOTE: legacy api, we don't care if it's wrong for multiple roots (does React even support multiple roots?) */
-function findDOMNode_Component(classComponent: ComponentInstance, component: JsReactComponent): JsReactComponent | undefined {
+function findDOMNode_Component(classComponent: ComponentInstance, component: VirtNode): VirtNode | undefined {
   if (component.instance === classComponent) return component;
   for (const c of Object.values(component.children)) {
     const search = findDOMNode_Component(classComponent, c);
     if (search != null) return search;
   }
 }
-function findDOMNode_firstElement(component: JsReactComponent | undefined) {
+function findDOMNode_firstElement(component: VirtNode | undefined) {
   const element = component?.element;
   if (element != null) return element;
   const firstChild = Object.values(component!.children)[0];
@@ -186,10 +186,10 @@ export function createElement(type: ElementType, props: JsReactElement<PropsWith
     : argChildren.length === 1 ? argChildren[0] : (argChildren.length === 0 ? null : argChildren);
   return { $$typeof: TYPE_ELEMENT, type, key: key as JsReactElement["key"], props: {...rest, children} };
 }
-export function cloneElement(vnode: JsReactNode, childProps: DOMProps | null): JsReactNode {
-  if (isIterable(vnode)) throw new Error("Not implemented: cloneElement(array)");
-  if (isValidElement(vnode)) {return {...vnode, props: {...vnode.props as object, ...childProps}}}
-  return vnode;
+export function cloneElement(node: JsReactNode, childProps: DOMProps | null): JsReactNode {
+  if (isIterable(node)) throw new Error("Not implemented: cloneElement(array)");
+  if (isValidElement(node)) {return {...node, props: {...node.props as object, ...childProps}}}
+  return node;
 }
 export function typeOf(value: any): symbol|undefined {
   if (typeof value === "object" && value !== null) {
@@ -308,7 +308,7 @@ export const Children = {
 }
 
 // implementation
-type JsReactComponent = {
+type VirtNode = {
   /** user input */
   node: JsReactNode;
   /** the HTML or SVG element derived from JSX */
@@ -326,11 +326,11 @@ type JsReactComponent = {
   /** used to generate default keys for children */
   childIndex: number;
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
-  children: Record<string, JsReactComponent>;
+  children: Record<string, VirtNode>;
   /** used to implement HTML event listeners */
   prevEventHandlers: Record<string, PrevEventHandler|undefined>;
   /** used to implement hooks and rerender() */
-  root: JsReactComponent;
+  root: VirtNode;
   /** used to implement rerender() */
   flags: number;
 };
@@ -451,7 +451,7 @@ function _makeReactEventHandler(callback: ReactEventHandler): EventHandler<Event
   }) as EventHandler;
 }
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-function createElementAndApplyDOMProps(component: JsReactComponent, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
+function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: string, props: DOMProps, isSvgElement: boolean) {
   const {prevEventHandlers} = component;
   let element = component.element;
   if (element == null) {
@@ -529,7 +529,7 @@ function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
   if (typeof ref === "function") ref(value);
   else if (ref) ref.current = value;
 }
-function jsreact$renderJsxChildren(parent: JsReactComponent, child: JsReactNode, childOrder: JsReactComponent[], parentIsSvgElement: boolean) {
+function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
   // recurse
   if (isIterable(child)) {
     for (const c of child) jsreact$renderJsxChildren(parent, c as JsReactNode, childOrder, parentIsSvgElement);
@@ -712,12 +712,11 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: JsReactNode,
     if (currentElement != null && (currentElement?.tagName?.toLowerCase() ?? "Text") !== desiredElementType) {
       let node: Partial<JsReactNode> = child;
       let source = "";
-      if (isValidElement(child)) {
-        const vnode = {...child};
-        source = vnode.source != null ? `${vnode.source?.fileName}:${vnode.source?.lineNumber}` : "";
-        delete vnode.key;
-        delete vnode.source;
-        node = vnode;
+      if (isValidElement(node)) {
+        node = {...node};
+        source = node.source != null ? `${node.source?.fileName}:${node.source?.lineNumber}` : "";
+        delete node.key;
+        delete node.source;
       }
       const error = (source ? `${source}: ` : "") + "Dynamic elements must have the key prop";
       console.error(`${error}:`, {before: component.element, next: node});
@@ -755,7 +754,7 @@ function jsreact$renderJsxChildren(parent: JsReactComponent, child: JsReactNode,
   jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
   if (context != null) context._currentValue = prevContextValue;
 }
-function jsreact$renderChildren(parent: JsReactComponent, children: JsReactNode, childOrder: JsReactComponent[], parentIsSvgElement: boolean) {
+function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement);
   unmountUnusedChildren(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
@@ -773,7 +772,7 @@ function jsreact$renderChildren(parent: JsReactComponent, children: JsReactNode,
     }
   }
 }
-function unmountUnusedChildren(parent: JsReactComponent, parentGcFlag: number, removeChildrenFromDOM: boolean) {
+function unmountUnusedChildren(parent: VirtNode, parentGcFlag: number, removeChildrenFromDOM: boolean) {
   for (const component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; /* delete old state */
@@ -858,7 +857,7 @@ export function prettifyError(prefix: any, error: string|undefined|null, verbose
 // entry
 let renderCount = 0;
 export function getRenderCount(): number {return renderCount}
-function rerender(component: JsReactComponent) {
+function rerender(component: VirtNode) {
   let whyDidYouRender: string|null = null;
   if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError("", whoami(), WHY_DID_YOU_RENDER_VERBOSE);
   const rootComponent = component.root;
@@ -929,14 +928,14 @@ function rerender(component: JsReactComponent) {
   }
 }
 export function createRoot(parent: HTMLElement) {
-  const render = (vnode: JsReactNode) => {
+  const render = (node: JsReactNode) => {
     const rootHooks: RootHooks = {
       legacyComponentUpdates: [],
       legacySetStateCallbacks: [],
       useLayoutEffects: [],
     };
-    const rootComponent: JsReactComponent = {
-      node: vnode,
+    const rootComponent: VirtNode = {
+      node,
       element: parent,
       instance: rootHooks,
       prevHookIndex: 0,
@@ -946,7 +945,7 @@ export function createRoot(parent: HTMLElement) {
       childIndex: 0,
       children: {},
       prevEventHandlers: {},
-      root: undefined as unknown as JsReactComponent,
+      root: undefined as unknown as VirtNode,
       flags: 0,
     };
     rootComponent.root = rootComponent;
@@ -959,17 +958,17 @@ export function createRoot(parent: HTMLElement) {
   });
   }
   return {
-    render(vnode: JsReactNode) {
-      window.addEventListener("DOMContentLoaded", () => render(vnode));
+    render(node: JsReactNode) {
+      window.addEventListener("DOMContentLoaded", () => render(node));
     },
   }
 }
 
 // hooks
 /** the current component */
-let $component = {} as JsReactComponent;
+let $component = {} as VirtNode;
 /** NOTE: internal tool for debugging */
-export function __getCurrentComponent(): JsReactComponent {return $component}
+export function __getCurrentComponent(): VirtNode {return $component}
 /** NOTE: RootHooks must be run in the order defined here */
 type RootHooks = {
   legacyComponentUpdates: UseLegacyComponentUpdate[];
