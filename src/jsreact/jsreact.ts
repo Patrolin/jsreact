@@ -226,7 +226,7 @@ function _makeExoticComponent<P = {}>($$typeof: symbol, render?: JSXElementConst
   return render as NamedExoticComponent<P>;
 }
 export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
-  const memoComponent = ((props: object) => createElement(component, props)) as MemoComponent;
+  const memoComponent = ((props: any) => createElement(component, props)) as MemoComponent;
   memoComponent.$$arePropsEqual = arePropsEqual;
   return _makeExoticComponent(EXOTIC_MEMO, memoComponent);
 }
