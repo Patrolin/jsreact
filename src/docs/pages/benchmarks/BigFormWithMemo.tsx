@@ -17,18 +17,18 @@ const TextFieldMemo: FC<TextFieldProps> = (props) => {
     didBlur: false,
   })
   const mappedProps = {} as Record<string, any>;
+  mappedProps.onBlur = cache.current.staticEventHandlers.onBlur = cache.current.staticEventHandlers.onBlur ?? ((event: FocusEvent) => {
+    cache.current.didBlur = true;
+    cache.current.currentEventHandlers.onBlur?.(event);
+  });
   for (const k of Object.keys(props)) {
-    if (k.startsWith("on") && k !== "onBlur") {
+    if (k.startsWith("on")) {
       mappedProps[k] = cache.current.staticEventHandlers[k] = cache.current.staticEventHandlers[k] ?? ((...args: any) => cache.current.currentEventHandlers[k](...args));
     } else {
       mappedProps[k] = (props as Record<string, any>)[k];
     }
   }
   // update metadata
-  mappedProps.onBlur = cache.current.staticEventHandlers.onBlur = cache.current.staticEventHandlers.onBlur ?? ((event: FocusEvent) => {
-    cache.current.didBlur = true;
-    cache.current.currentEventHandlers.onBlur?.(event);
-  });
   for (const k of Object.keys(cache.current.staticEventHandlers)) {
     cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
