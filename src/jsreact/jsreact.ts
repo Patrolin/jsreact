@@ -226,13 +226,9 @@ function _makeExoticComponent<P = {}>($$typeof: symbol, render?: JSXElementConst
   return render as NamedExoticComponent<P>;
 }
 export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
-  let memoComponent = component;
-  // TODO: fixup
-  if (isComponentClass(component) || (component as NamedExoticComponent).$$typeof != null) {
-    memoComponent = ((props: object) => createElement(component, props)) as FC;
-  }
-  (memoComponent as MemoComponent).$$arePropsEqual = arePropsEqual;
-  return _makeExoticComponent(EXOTIC_MEMO, memoComponent as FC);
+  const memoComponent = ((props: object) => createElement(component, props)) as MemoComponent;
+  memoComponent.$$arePropsEqual = arePropsEqual;
+  return _makeExoticComponent(EXOTIC_MEMO, memoComponent);
 }
 // forwardRef()
 const EXOTIC_FORWARD_REF = Symbol.for("react.forward_ref");
