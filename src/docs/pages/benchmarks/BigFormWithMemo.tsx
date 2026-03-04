@@ -1,6 +1,7 @@
 import { TextField, TextFieldProps } from "@mui/material";
-import { ChangeEvent, FC, InputEvent, memo, useRef, useState } from "react";
-import { __getCurrentComponent } from "@/jsreact";
+import { ChangeEvent, FC, memo, useRef, useState } from "react";
+
+const TEXT_FIELD_COUNT = 120;
 
 function objectEquals(a: any, b: any): boolean {
   const keys = new Set([...Object.keys(a), ...Object.keys(a)]);
@@ -8,28 +9,38 @@ function objectEquals(a: any, b: any): boolean {
     return Object.is(a[k], b[k]);
   });
 }
-
-const TEXT_FIELD_COUNT = 120;
 const TextFieldMemo: FC<TextFieldProps> = (props) => {
-  const staticEventHandlers = useRef({} as Record<string, (...args: any) => void>).current;
-  const currentEventHandlers = useRef({} as Record<string, (...args: any) => void>).current;
-  let mappedProps = {} as Record<string, any>;
+  // cache event listeners
+  const cache = useRef({
+    staticEventHandlers: {} as Record<string, (...args: any) => void>,
+    currentEventHandlers: {} as Record<string, (...args: any) => void>,
+    didBlur: false,
+  })
+  const mappedProps = {} as Record<string, any>;
   for (const k of Object.keys(props)) {
-    if (k.startsWith("on")) {
-      mappedProps[k] = staticEventHandlers[k] = staticEventHandlers[k] ?? ((...args: any) => currentEventHandlers[k](...args));
+    if (k.startsWith("on") && k !== "onBlur") {
+      mappedProps[k] = cache.current.staticEventHandlers[k] = cache.current.staticEventHandlers[k] ?? ((...args: any) => cache.current.currentEventHandlers[k](...args));
     } else {
       mappedProps[k] = (props as Record<string, any>)[k];
     }
   }
-  for (const k of Object.keys(staticEventHandlers)) {
-    currentEventHandlers[k] = (props as Record<string, any>)[k];
+  // update metadata
+  mappedProps.onBlur = cache.current.staticEventHandlers.onBlur = cache.current.staticEventHandlers.onBlur ?? ((event: FocusEvent) => {
+    cache.current.didBlur = true;
+    cache.current.currentEventHandlers.onBlur?.(event);
+  });
+  for (const k of Object.keys(cache.current.staticEventHandlers)) {
+    cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
-  return <TextFieldMemoImplementation {...mappedProps} />;
+  const didBlur = cache.current.didBlur;
+  cache.current.didBlur = false;
+  return <TextFieldMemoImplementation {...mappedProps} didBlur={didBlur} />;
 };
 const TextFieldMemoImplementation = memo(
-  (props: TextFieldProps) => {
+  (props: TextFieldProps & {didBlur: boolean}) => {
+    const {didBlur, ...rest} = props;
     console.log("TextFieldMemoImplementation");
-    return <TextField {...props} />;
+    return <TextField {...rest} />;
   },
   (a: Record<string, any>, b: Record<string, any>) => {
     const keys = new Set([...Object.keys(a), ...Object.keys(a)]);

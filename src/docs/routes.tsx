@@ -45,11 +45,6 @@ export const routes: Route[] = [
     component: MemoComponentPage,
   },
   {
-    path: "/react-is",
-    label: "react-is test",
-    component: ReactIsTestPage,
-  },
-  {
     path: "/css-transition",
     label: "react-transition-group CSSTransition",
     component: RTG_CSSTransitionPage,
@@ -63,6 +58,11 @@ export const routes: Route[] = [
     path: "/transitionGroup",
     label: "react-transition-group TransitionGroup",
     component: RTG_TransitionGroupPage,
+  },
+  {
+    path: "/react-is",
+    label: "react-is test",
+    component: ReactIsTestPage,
   },
   {
     path: "/portal",
