@@ -15,7 +15,7 @@ const TextFieldMemo: FC<TextFieldProps> = (props) => {
     staticEventHandlers: {} as Record<string, (...args: any) => void>,
     currentEventHandlers: {} as Record<string, (...args: any) => void>,
     didBlur: false,
-  })
+  });
   const mappedProps = {} as Record<string, any>;
   mappedProps.onBlur = cache.current.staticEventHandlers.onBlur = cache.current.staticEventHandlers.onBlur ?? ((event: FocusEvent) => {
     cache.current.didBlur = true;
