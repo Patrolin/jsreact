@@ -1,4 +1,4 @@
-import { createContext, FC, Fragment, PropsWithChildren, useContext, useRef } from "../jsreact";
+import { createContext, FC, Fragment, PropsWithChildren, useContext, useRef } from "react";
 
 // LocationProvider
 function route(url: string, replace?: boolean): void {
@@ -11,7 +11,7 @@ type LocationContextType = {
   route: typeof route;
 };
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
-type LocationProviderProps = {};
+type LocationProviderProps = PropsWithChildren<{}>;
 export const LocationProvider: FC<LocationProviderProps> = (props) => {
   const locationRef = useRef<LocationContextType>({
     pathname: "",
