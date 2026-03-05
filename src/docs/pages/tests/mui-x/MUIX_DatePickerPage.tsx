@@ -3,7 +3,7 @@ import { AdapterDayjs } from "../../../mock/mui-x/x-date-pickers/AdapterDayjs";
 import { csCZ } from "../../../mock/mui-x/x-date-pickers/locales";
 import dayjs from "dayjs";
 import "dayjs/locale/cs";
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 type DatePickerInputDate<TEnableAccessibleFieldDOMStructure extends boolean = true> = {
   variant?: "date";
@@ -17,8 +17,10 @@ type DatePickerInputProps<TEnableAccessibleFieldDOMStructure extends boolean = t
 
 function DatePickerInput<TEnableAccessibleFieldDOMStructure extends boolean = true>(props: DatePickerInputProps<TEnableAccessibleFieldDOMStructure>) {
   const { variant, value, onChange, ...rest } = props as any;
+  // TODO: why does React not require a useMemo here?
+  const value_dayjs = useMemo(() => value != null ? dayjs(value) : null, [value]);
   const commonProps = {
-    value: value ? dayjs(value) : null,
+    value: value_dayjs,
     onChange: (newValue: any) => {
       if (onChange) {
         onChange(newValue ? newValue.toDate() : null);
@@ -40,7 +42,9 @@ export const MUIX_DatePickerPage: React.FC = () => {
   //const [date, setDate] = useState(new Date(0));
   const [date, setDate] = useState(null as Date|null);
   return <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="cs">
-    <DatePickerInput sx={{marginTop: 1}} label="Date" value={date} onChange={(newDate) => setDate(newDate)} />
+    <DatePickerInput sx={{marginTop: 1}} label="Date" value={date} onChange={(newDate) => {
+      setDate(newDate)
+    }} />
     {/*<DatePickerInput sx={{marginTop: 1}} label="Datetime" variant="datetime" value={date} onChange={(newDate) => setDate(newDate)} />*/}
   </LocalizationProvider>
 }

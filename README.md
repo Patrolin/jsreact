@@ -77,29 +77,28 @@ No, `@mui/material` relies on `react-transition-group`, which relies on dumb leg
 since we force conflicting renders to happen on different frames, so each one gets its layout effects separately.
 
 ### Differences to React [⤴](#jsreact)
-Here is an example timeline of how different React implementations order events:
-```tsx
-  return (<>
-    <MyComponentClass name="foo" />
-    <MyComponentClass name="bar" />
-  </>);
-```
-|Preact                   |React                    |jsreact                  |
-|-------------------------|-------------------------|-------------------------|
-|foo.render()             |foo.render()             |foo.render()             |
-|bar.render()             |bar.render()             |bar.render()             |
-|foo.componentDidMount()  |foo.componentDidMount()  |foo.componentDidMount()  |
-|bar.componentDidMount()  |bar.componentDidMount()  |bar.componentDidMount()  |
-|                         |                         |                         |
-|foo.render()             |foo.render()             |foo.render()             |
-|foo.componentDidUpdate() |bar.render()             |bar.render()             |
-|bar.render()             |foo.componentDidUpdate() |foo.componentDidUpdate() |
-|bar.componentDidUpdate() |bar.componentDidUpdate() |bar.componentDidUpdate() |
+1) There is a defined order for the type of callback (render() -> componentDidMount()/componentDidUpdate() -> ...).
+But the order between different components is not defined, and both we and React choose to group by callback type for better perfomance:
+    ```tsx
+      return (<>
+        <MyComponentClass name="foo" />
+        <MyComponentClass name="bar" />
+      </>);
+    ```
+    |Preact                   |React                    |jsreact                  |
+    |-------------------------|-------------------------|-------------------------|
+    |foo.render()             |foo.render()             |foo.render()             |
+    |bar.render()             |bar.render()             |bar.render()             |
+    |foo.componentDidMount()  |foo.componentDidMount()  |foo.componentDidMount()  |
+    |bar.componentDidMount()  |bar.componentDidMount()  |bar.componentDidMount()  |
+    |                         |                         |                         |
+    |foo.render()             |foo.render()             |foo.render()             |
+    |foo.componentDidUpdate() |bar.render()             |bar.render()             |
+    |bar.render()             |foo.componentDidUpdate() |foo.componentDidUpdate() |
+    |bar.componentDidUpdate() |bar.componentDidUpdate() |bar.componentDidUpdate() |
 
-There is a defined order for the type of callback (render() -> componentDidMount()/componentDidUpdate() -> ...).
-But the order between different components is not defined, and both we and React choose to group by callback type for better perfomance.
-
-See also: [Environment variables](#environment-variables-)
+2) For `<input value="" />`, React rerenders every time you type a character, even though there is no event handler, but we do not.
+3) See also: [Environment variables](#environment-variables-)
 
 ## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:

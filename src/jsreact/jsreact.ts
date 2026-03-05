@@ -51,6 +51,7 @@ export type DOMProps<R = any> = JsxProps & Omit<React.DOMAttributes<R>, "childre
   className?: string[] | string;
   style?: React.CSSProperties & {[k in `--${string}`]: number | string};
   htmlFor?: string;
+  value?: string;
   [k: string]: any;
 };
 
@@ -476,14 +477,22 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
   }
   component.hooks = newClassList;
   // attributes/events
-  if (MAP_ONCHANGE_TO_ONINPUT && (desiredElementType === "input" || desiredElementType === "textarea")) {
-    const {onInput, onChange} = rest;
-    if (onChange) {
-      rest.onInput = (event) => {
-        onInput?.(event);
-        onChange?.(event);
+  if (desiredElementType === "input" || desiredElementType === "textarea") {
+    if (MAP_ONCHANGE_TO_ONINPUT) {
+      const {onInput, onChange} = rest;
+      if (onChange) {
+        rest.onInput = (event) => {
+          onInput?.(event);
+          onChange?.(event);
+        }
+        delete rest.onChange;
       }
-      delete rest.onChange;
+    }
+    if ("value" in rest) {
+      const value = rest.value ?? "";
+      element.setAttribute("value", value);
+      (element as HTMLInputElement|HTMLTextAreaElement).value = value;
+      delete rest.value;
     }
   }
   for (const [key, value] of Object.entries(rest)) {
@@ -686,9 +695,6 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_FORWARD_REF: {
         const {ref = null, ...rest} = leaf.props as DOMProps;
         leaf = (leafType as unknown as ForwardRefComponent)(rest, ref) as JsReactNode;
-        if (keyRight.includes("PickersCalendarHeader")) {
-          //console.log("ayaya.picker.foo", {keyRight, leafType, leaf})
-        }
       } break;
       default: {
         console.error("Invalid element type:", leaf);
@@ -737,11 +743,8 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       createElementAndApplyDOMProps(component, desiredElementType, (leaf as JsReactElement).props, isSvgElement);
       parentIsSvgElement = isSvgElement && (desiredElementType !== "foreignObject");
       const ref = (child as JsReactElement).props.ref;
+      /* NOTE: in order to support `ref={setState}`, we must only set the ref when the element is new! */
       if (isElementNew) setRef(ref, component.element);
-      else {
-        //setRef(ref, null);
-        //setRef(ref, component.element);
-      }
       childOrder.push(component);
       childOrder = [];
     }
@@ -1090,16 +1093,16 @@ export function useDebugValue<T>(_value: T, _formatter?: (value: T) => any) {
   // TODO: maybe store the debug value?
 }
 export function useReducer<S, A>(reducer: (state: S, action: A) => S, initialArg: S, init?: (initialArg: S) => S): [S, (action: A) => void] {
-  console.log("ayaya.useReducer", {reducer, initialArg, init});
   const prevHookCount = $component.hooks.length;
-  const hook = useHook({ state: undefined as S, dispatch: (_action: A) => {} });
+  const hook = useHook({ state: undefined as S });
   if ($component.hookIndex > prevHookCount) {
     if (init != null) hook.state = init(initialArg);
     else hook.state = initialArg;
-    hook.dispatch = (action: A) => setTimeout(() => {
-      hook.state = reducer(hook.state, action);
-    }, 0);
   }
-  return [hook.state, hook.dispatch];
+  const dispatch = (action: A) => setTimeout(() => {
+    hook.state = reducer(hook.state, action);
+    rerender($component);
+  }, 0);
+  return [hook.state, dispatch];
 }
 // TODO: more hooks?

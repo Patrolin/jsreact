@@ -5,6 +5,7 @@ import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
 import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
 import { MUIX_DatePickerPage } from "./pages/tests/mui-x/MUIX_DatePickerPage";
 import { MUI_ButtonPage } from "./pages/tests/mui/MUI_ButtonPage";
+import { MUI_ControlledInputPage } from "./pages/tests/mui/MUI_ControlledInputPage";
 import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInputPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
@@ -103,6 +104,11 @@ export const routes: Route[] = [
     path: "/forkRef",
     label: "MUI useForkRef()",
     component: MUI_useForkRefPage,
+  },
+  {
+    path: "/controlledInput",
+    label: "MUI controlled input",
+    component: MUI_ControlledInputPage,
   },
   {
     path: "/muix-datePicker",
