@@ -4,24 +4,22 @@ import react from '@vitejs/plugin-react'
 import path from "path";
 
 type VitePreset = {
-  aliases: Alias[];
-  plugins: PluginOption[];
   tsConfig: any;
-  excludeOptimizeDeps: string[];
+  aliases?: Alias[];
+  plugins?: PluginOption[];
+  excludeOptimizeDeps?: string[];
 };
 function getVitePreset(mode: string): VitePreset {
   switch (mode) {
   case "react": {
     return {
-      aliases: [],
-      plugins: [react()],
       tsConfig: require("./tsconfig.react.json"),
-      excludeOptimizeDeps: [],
+      plugins: [react()],
     };
   } break;
   case "preact": {
     return {
-      aliases: [],
+      tsConfig: require("./tsconfig.preact.json"),
       plugins: [
         preact(),
         {
@@ -32,20 +30,17 @@ function getVitePreset(mode: string): VitePreset {
           }
         },
       ],
-      tsConfig: require("./tsconfig.preact.json"),
-      excludeOptimizeDeps: [],
     };
   } break;
   default: {
     return {
+      tsConfig: require("./tsconfig.json"),
       aliases: [
         { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
         { find: "react-dom", replacement: path.resolve(__dirname, "src/jsreact/react-dom") },
         { find: "preact", replacement: path.resolve(__dirname, "src/jsreact/preact") },
         { find: "preact-iso", replacement: path.resolve(__dirname, "src/jsreact/preact-iso") },
       ],
-      plugins: [],
-      tsConfig: require("./tsconfig.json"),
       excludeOptimizeDeps: ["react", "react-dom", "preact", "preact-iso"],
     };
   } break;
@@ -54,7 +49,7 @@ function getVitePreset(mode: string): VitePreset {
 
 // https://vitejs.dev/config/
 export default defineConfig(({mode}) => {
-  const {plugins, aliases, tsConfig, excludeOptimizeDeps} = getVitePreset(mode);
+  const {plugins, aliases=[], tsConfig, excludeOptimizeDeps=[]} = getVitePreset(mode);
   const config: UserConfig = {
     envPrefix: ["VITE_", "JSREACT_"],
     plugins,
