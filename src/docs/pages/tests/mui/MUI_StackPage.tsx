@@ -1,5 +1,4 @@
 import { FastTextField } from "@/docs/components/FastTextField";
-import { useRerender } from "@/jsreact";
 import { Box, FormControlLabel, FormGroup, Radio, Stack, Typography } from "@mui/material";
 import { FC, useState } from "react";
 
@@ -9,9 +8,9 @@ export const MUI_StackPage: FC = () => {
     bar: "",
     side: null as "left" | "right" | null,
   });
-  const rerender = useRerender();
   return (
     <Stack spacing={2}>
+      {/* NOTE: we also test that memo() components preserve the child order here */}
       <FastTextField
         style={{ marginTop: 8 }}
         label="Foo"
