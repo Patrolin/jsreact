@@ -228,6 +228,7 @@ export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: o
   memoComponent.$$arePropsEqual = arePropsEqual;
   return _makeExoticComponent(EXOTIC_MEMO, memoComponent);
 }
+type CachedChildOrder = VirtNode[];
 // forwardRef()
 const EXOTIC_FORWARD_REF = Symbol.for("react.forward_ref");
 export function forwardRef<R = any, P = {}>(render: ForwardFn<P, R>): ForwardRefComponent<P, R> {
@@ -311,8 +312,8 @@ type VirtNode = {
   node: JsReactNode;
   /** the HTML or SVG element derived from JSX */
   element: Element | SVGElement | undefined;
-  /** used to implement ComponentClass, or RootHooks on root component */
-  instance: ComponentInstance<any, any> | RootHooks | undefined;
+  /** used to implement ComponentClass, RootHooks on root component, or CachedChildOrder on EXOTIC_MEMO components */
+  instance: ComponentInstance<any, any> | RootHooks | CachedChildOrder | undefined;
   /** used to catch errors */
   prevHookIndex: number;
   /** used by `useId()` on RootComponent, else used to catch errors */
@@ -592,6 +593,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
   let desiredElementType = "";
   let context: Context<any> | undefined;
   let prevContextValue: any;
+  let memoChildOrderStart: number | undefined;
   if (!isValidElement(leaf)) {
     // Value
     if (typeof leaf === "boolean" || leaf == null) return;
@@ -617,8 +619,11 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
+          if (prevNode.props.label === "Foo") console.log("ayaya.cachedChildOrder", component, component.instance);
+          for (let child of component.instance as CachedChildOrder) childOrder.push(child);
           return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
+        memoChildOrderStart = childOrder.length;
         /* NOTE: fallthrough */
       case EXOTIC_CONTEXT_PROVIDER:
       case EXOTIC_CONTEXT_CONSUMER:
@@ -753,6 +758,10 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
   const children: JsReactNode = leaf === child ? (leaf as JsReactElement|null)?.props?.children as JsReactNode : leaf;
   jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
   if (context != null) context._currentValue = prevContextValue;
+  if (memoChildOrderStart != null) {
+    const cachedChildOrder: CachedChildOrder = childOrder.slice(memoChildOrderStart);
+    component.instance = cachedChildOrder;
+  }
 }
 function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement);
@@ -760,6 +769,7 @@ function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOr
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null && !(parentElement instanceof Text)) {
+    if (parentElement.classList.contains("MuiStack-root")) console.log("ayaya.order", parent, childOrder)
     let prevElement = null as Element|null;
     for (const c of childOrder) {
       const childElement = c.element!;

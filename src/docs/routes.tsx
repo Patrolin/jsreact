@@ -10,6 +10,7 @@ import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInputPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
 import { MUI_SliderPage } from "./pages/tests/mui/MUI_SliderPage";
+import { MUI_StackPage } from "./pages/tests/mui/MUI_StackPage";
 import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
 import { MUI_TooltipPage } from "./pages/tests/mui/MUI_TooltipPage";
 import { MUI_useForkRefPage } from "./pages/tests/mui/MUI_useForkRefPage";
@@ -99,6 +100,11 @@ export const routes: Route[] = [
     path: "/outlinedInput",
     label: "MUI OutlinedInput",
     component: MUI_OutlinedInputPage,
+  },
+  {
+    path: "/stack",
+    label: "MUI Stack",
+    component: MUI_StackPage,
   },
   {
     path: "/forkRef",
