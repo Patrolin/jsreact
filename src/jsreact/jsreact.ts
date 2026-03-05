@@ -194,14 +194,11 @@ export function cloneElement(node: JsReactNode, childProps: DOMProps | null): Js
 export function typeOf(value: any): symbol|undefined {
   if (typeof value === "object" && value !== null) {
     const $$typeof = (value as JsReactElement).$$typeof;
-    switch ($$typeof) {
-    case TYPE_LEGACY_ELEMENT:
-    case TYPE_ELEMENT: {
+    if ($$typeof === TYPE_LEGACY_ELEMENT || $$typeof === TYPE_ELEMENT) {
       const type = (value as JsReactElement).type;
       if (typeof type === "symbol") return type;
       else return (type as NamedExoticComponent|undefined)?.$$typeof as symbol|undefined;
-    } break;
-    default: // PORTAL_TYPE
+    } else { /* TYPE_PORTAL */
       return $$typeof;
     }
   }
