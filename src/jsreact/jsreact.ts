@@ -39,6 +39,7 @@ const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JS
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
 const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
+const CONTROLLED_HTML_INPUTS = parseEnvBoolean("JSREACT_CONTROLLED_HTML_INPUTS", env.JSREACT_CONTROLLED_HTML_INPUTS) ?? false;
 const ALWAYS_RENDER_MEMO = parseEnvBoolean("JSREACT_ALWAYS_RENDER_MEMO", env.JSREACT_ALWAYS_RENDER_MEMO) ?? false;
 
 // types
@@ -500,14 +501,14 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
     if ("value" in rest) {
       const value = rest.value ?? "";
       element.setAttribute("value", value);
-      (element as HTMLInputElement|HTMLTextAreaElement).value = value;
+      if (CONTROLLED_HTML_INPUTS) (element as HTMLInputElement|HTMLTextAreaElement).value = value;
       delete rest.value;
     }
     if ("checked" in rest) {
       const checked = Boolean(rest.checked);
       if (checked) element.setAttribute("checked", "");
       else element.removeAttribute("checked");
-      (element as HTMLInputElement).checked = checked;
+      if (CONTROLLED_HTML_INPUTS) (element as HTMLInputElement).checked = checked;
       delete rest.checked;
     }
   }

@@ -5,3 +5,5 @@ import { FC } from "react";
 export const MUI_OutlinedInputPage: FC = () => {
   return <TextField style={{ marginTop: 20 }} label="Username" />;
 };
+
+// BUG: fix checkbox input

@@ -210,6 +210,8 @@ TODO: make a benchmark with lots of MUI TextFields
     JSREACT_SLOW_EVENT_HANDLERS?: boolean|"";
     /** If true, mimic React's behavior of remapping `onChange` to `onInput` for <input> and <textarea> elements */
     JSREACT_MAP_ONCHANGE_TO_ONINPUT?: boolean|"";
+    /** If true, set `inputElement.value = props.value` for <input> and <textarea> elements, NOTE: this breaks uncontrolled fields in MUI. */
+    JSREACT_CONTROLLED_HTML_INPUTS?: boolean|"";
     /** If true, render `memo()` components as regular components */
     JSREACT_ALWAYS_RENDER_MEMO?: boolean|"";
   ```
