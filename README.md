@@ -187,12 +187,14 @@ TODO: make a benchmark with lots of MUI TextFields
 ### Environment variables [⤴](#jsreact)
   ```ts
     /** Disable crashing the page when an exception is thrown during rendering,
-     * defaults to `process.env.NODE_ENV === "production"`. */
+     * defaults to `env.NODE_ENV === "production"`. */
     JSREACT_IS_PRODUCTION?: boolean|"";
     /** If present, log why each render happened with this prefix
      *  into the `Verbose` group via `console.debug()`. */
     JSREACT_WHY_DID_YOU_RENDER_PREFIX?: string;
-    /** If greater than zero, console.warn() whenever a render takes more than this amount, defaults to `100` */
+    /** Include jsreact internals when printing why each render happened */
+    WHY_DID_YOU_RENDER_VERBOSE?: boolean|"";
+    /** If greater than zero, console.warn() whenever a render takes longer than this amount, defaults to `100` */
     JSREACT_WARN_RENDER_MS?: number|"";
     /** If number, throw an exception on the nth render
      *  and all subsequent renders. */
@@ -200,17 +202,16 @@ TODO: make a benchmark with lots of MUI TextFields
     /** If true, run a `debugger;` statement before the nth render
      *  instead of throwing an exception. */
     JSREACT_INFINITE_LOOP_PAUSE?: boolean|"";
-    /** If true, schedule fast renders before other event handlers instead of after.
-     *  This results in more renders, which matches React behavior more closely, for example:
-     *    <button onMouseUp={() => setState(state + 1)}
-     *      onClick={() => setState(state + 1)}
-     *    >
+    /** If true, mimic React's behavior of scheduling infrequent rerenders before other event handlers instead of after, for example:
+     *    <button onMouseUp={() => setState(state + 1)} onClick={() => setState(state + 1)}>
      *      +1
      *    </button>
-     *  would increment the state by 2 instead of 1 */
+     *  This would increment the state by 2 instead of 1. This results in more renders (for no practical reason). */
     JSREACT_SLOW_EVENT_HANDLERS?: boolean|"";
-    /** If true, mimic React's behavior of remapping `onChange` to `onInput` for <input> and <textarea> */
+    /** If true, mimic React's behavior of remapping `onChange` to `onInput` for <input> and <textarea> elements */
     JSREACT_MAP_ONCHANGE_TO_ONINPUT?: boolean|"";
+    /** If true, render `memo()` components as regular components */
+    JSREACT_ALWAYS_RENDER_MEMO?: boolean|"";
   ```
   NOTE: In vite, you have to explicitly forward the env variables with:
   ```ts

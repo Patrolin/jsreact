@@ -37,8 +37,9 @@ const WHY_DID_YOU_RENDER_VERBOSE = parseEnvBoolean("JSREACT_WHY_DID_YOU_RENDER_V
 const WARN_RENDER_MS = parseEnvNumber("JSREACT_WARN_RENDER_MS", env.JSREACT_WARN_RENDER_MS) ?? 100;
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
-const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
 const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
+const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
+const ALWAYS_RENDER_MEMO = parseEnvBoolean("JSREACT_ALWAYS_RENDER_MEMO", env.JSREACT_ALWAYS_RENDER_MEMO) ?? false;
 
 // types
 export type MutableRef<T> = {current: T};
@@ -229,6 +230,7 @@ function _makeExoticComponent<P = {}>($$typeof: symbol, render?: JSXElementConst
   return render as NamedExoticComponent<P>;
 }
 export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
+  if (ALWAYS_RENDER_MEMO) return component;
   const memoComponent = ((props: any) => createElement(component, props)) as MemoComponent;
   memoComponent.$$arePropsEqual = arePropsEqual;
   memoComponent.displayName = component.displayName || component.name;
