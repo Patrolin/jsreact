@@ -12,6 +12,7 @@ export const MUI_RadioPage: FC = () => {
   console.log(__getCurrentComponent().root);
   return (
     <div>
+      <button onClick={() => setFoo(!foo)}>Toggle</button>
       <div style={{ display: "inline-flex", flexDirection: "column" }}>
         <input type="radio" name="foo" checked={foo} onChange={() => setFoo(true)} />
         <input type="radio" name="foo" checked={!foo} onChange={() => setFoo(false)} />

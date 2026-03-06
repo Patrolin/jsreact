@@ -496,6 +496,13 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
       (element as HTMLInputElement|HTMLTextAreaElement).value = value;
       delete rest.value;
     }
+    if ("checked" in rest) {
+      const checked = Boolean(rest.checked);
+      if (checked) element.setAttribute("checked", "");
+      else element.removeAttribute("checked");
+      (element as HTMLInputElement).checked = checked;
+      delete rest.checked;
+    }
   }
   for (const [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
@@ -1074,6 +1081,7 @@ export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
 /** Run `setup()` before refs are set, individually for each component */
 const USE_INSERTION_EFFECT_SYMBOL = Symbol.for("useInsertionEffect()");
 export function useInsertionEffect(setup: UseEffectSetup, dependencies?: any[]) {
+  console.log("ayaya.useInsertionEffect", setup, dependencies);
   const hook = useHook<UseEffect>({ $$typeof: USE_INSERTION_EFFECT_SYMBOL, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
