@@ -529,7 +529,7 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
         });
       }
     } else {
-      if (HTML_BOOLEAN_ATTRIBUTES.has(key)) {
+      if (HTML_BOOLEAN_ATTRIBUTES.has(key.toLowerCase())) {
         /* NOTE: considered true if present with any value */
         if (value) element.setAttribute(key, "");
         else element.removeAttribute(key);
