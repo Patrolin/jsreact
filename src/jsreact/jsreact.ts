@@ -226,6 +226,7 @@ function _makeExoticComponent<P = {}>($$typeof: symbol, render?: JSXElementConst
 export function memo(component: JSXElementConstructor<any>, arePropsEqual: (a: object, b: object) => boolean = defaultArePropsEqual) {
   const memoComponent = ((props: any) => createElement(component, props)) as MemoComponent;
   memoComponent.$$arePropsEqual = arePropsEqual;
+  memoComponent.displayName = component.displayName || component.name;
   return _makeExoticComponent(EXOTIC_MEMO, memoComponent);
 }
 type CachedChildOrder = VirtNode[];
@@ -322,10 +323,10 @@ type VirtNode = {
   hooks: Hook[] | string[];
   /** the key that the component was rendered as */
   key: string;
-  /** used to generate default keys for children */
-  childIndex: number;
   /** map<key, ChildState> - TODO: maybe use Map for performance? */
   children: Record<string, VirtNode>;
+  /** used to generate default keys for children */
+  childrenIndex: number;
   /** used to implement HTML event listeners */
   prevEventHandlers: Record<string, PrevEventHandler|undefined>;
   /** used to implement hooks and rerender() */
@@ -515,7 +516,7 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
     } else {
       if (HTML_BOOLEAN_ATTRIBUTES.has(key)) {
         /* NOTE: considered true if present with any value */
-        if (value) element.setAttribute(key, String(value ?? ""));
+        if (value) element.setAttribute(key, "");
         else element.removeAttribute(key);
       } else {
         /* NOTE: considered true if the value is set to "true" */
@@ -545,6 +546,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
   // get component state
   let keyLeft: Value;
   let keyRight: string;
+  let $$typeof: symbol|undefined;
   if (isValidElement(child)) {
     keyLeft = child.key;
     const childType = child.type;
@@ -552,15 +554,16 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       keyRight = childType;
     } else {
       const displayName = (childType as NamedExoticComponent).displayName;
-      const $$typeof = (childType as NamedExoticComponent).$$typeof;
       keyRight = displayName || (childType as JSXElementConstructor).name;
+      if (keyRight === "Insertion") console.log("ayaya.FOO", child)
+      $$typeof = typeOf(child);
       if ($$typeof) keyRight = keyRight ? `${keyRight}_${String($$typeof)}` : String($$typeof);
     }
   } else {
     keyRight = typeof child + "$";
   }
   if (keyLeft == null) {
-    keyLeft = parent.childIndex++;
+    keyLeft = parent.childrenIndex++;
   } else {
     keyLeft = keyLeft;
   }
@@ -575,7 +578,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       hookIndex: 0,
       hooks: [],
       key,
-      childIndex: 0,
+      childrenIndex: 0,
       children: {},
       prevEventHandlers: {},
       root: parent.root,
@@ -583,7 +586,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
     };
     parent.children[key] = component;
   }
-  component.childIndex = 0;
+  component.childrenIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
   component.flags = parent.flags & FLAGS_GC; /* NOTE: parent.flags can get set concurrently, so we need to filter them here */
@@ -608,7 +611,6 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       leaf = leaf.props.children;
     } else {
       // FC or exotic component
-      const $$typeof = typeOf(leaf);
       switch ($$typeof) {
       case TYPE_PORTAL: {
         const portal = leaf as unknown as PortalElement;
@@ -792,6 +794,7 @@ function unmountUnusedChildren(parent: VirtNode, parentGcFlag: number, removeChi
         switch (hookType) {
         case undefined: {} break;
         case USE_EFFECT_SYMBOL:
+        case USE_INSERTION_EFFECT_SYMBOL:
         case USE_LAYOUT_EFFECT_SYMBOL: {
           (hook as UseEffect).cleanup?.();
         } break
@@ -886,7 +889,7 @@ function rerender(component: VirtNode) {
       };
       // render
       const renderStartMs = performance.now();
-      rootComponent.childIndex = 0;
+      rootComponent.childrenIndex = 0;
       rootComponent.hookIndex = 0;
       rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RERENDER) | FLAGS_IS_RENDERING;
       await jsreact$renderChildren(rootComponent, rootComponent.node, [], false);
@@ -952,7 +955,7 @@ export function createRoot(parent: HTMLElement) {
       hookIndex: 0,
       hooks: [],
       key: "root",
-      childIndex: 0,
+      childrenIndex: 0,
       children: {},
       prevEventHandlers: {},
       root: undefined as unknown as VirtNode,
@@ -1051,13 +1054,13 @@ function dependenciesDiffer(prevDeps: any[] | null | undefined, deps: any[] | nu
   /* NOTE: `Object.is()` for correct NaN handling */
   return prevDeps == null || deps == null || prevDeps.length !== deps.length || prevDeps.some((v, i) => !Object.is(v, deps[i]));
 }
-const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
 type UseEffectSetup = () => (() => void) | null | undefined | void;
 type UseEffect = NamedHook<{
   cleanup: (() => void) | null | undefined | void;
   prevDeps: any[] | null;
 }>
-/** Run setup() at some point after this render has finished */
+/** Run `setup()` at some point after this render has finished */
+const USE_EFFECT_SYMBOL = Symbol.for("useEffect()");
 export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
   const hook = useHook<UseEffect>({ $$typeof: USE_EFFECT_SYMBOL, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
@@ -1068,9 +1071,19 @@ export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
     }, 0);
   }
 }
+/** Run `setup()` before refs are set, individually for each component */
+const USE_INSERTION_EFFECT_SYMBOL = Symbol.for("useInsertionEffect()");
+export function useInsertionEffect(setup: UseEffectSetup, dependencies?: any[]) {
+  const hook = useHook<UseEffect>({ $$typeof: USE_INSERTION_EFFECT_SYMBOL, cleanup: null, prevDeps: null });
+  if (dependenciesDiffer(hook.prevDeps, dependencies)) {
+    hook.prevDeps = [...(dependencies ?? [])];
+    hook.cleanup?.();
+    hook.cleanup = setup();
+  }
+}
 const USE_LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
 type UseLayoutEffect = NamedHook<UseEffect & {setup: UseEffectSetup}>
-/** Run setup() after layout of this render */
+/** Run `setup()` after layout of this render */
 export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
   const hook = useHook<UseLayoutEffect>({ $$typeof: USE_LAYOUT_EFFECT_SYMBOL, setup, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {

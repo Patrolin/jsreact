@@ -9,6 +9,7 @@ import { MUI_ControlledInputPage } from "./pages/tests/mui/MUI_ControlledInputPa
 import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInputPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
+import { MUI_RadioPage } from "./pages/tests/mui/MUI_RadioPage";
 import { MUI_SliderPage } from "./pages/tests/mui/MUI_SliderPage";
 import { MUI_StackPage } from "./pages/tests/mui/MUI_StackPage";
 import { MUI_SwitchPage } from "./pages/tests/mui/MUI_SwitchPage";
@@ -85,6 +86,11 @@ export const routes: Route[] = [
     path: "/button",
     label: "MUI Button",
     component: MUI_ButtonPage,
+  },
+  {
+    path: "/radio",
+    label: "MUI Radio",
+    component: MUI_RadioPage,
   },
   {
     path: "/switch",

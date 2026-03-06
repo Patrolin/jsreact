@@ -17,7 +17,10 @@
     "paths": {
       "@/*": ["src/*"],
       "preact": ["src/jsreact/preact"],
-      "preact-iso": ["src/jsreact/preact-iso"]
+      "preact-iso": ["src/jsreact/preact-iso"],
+      "@mui/material": ["src/docs/mock/mui-material"],
+      "@mui/utils": ["src/docs/mock/mui-utils"],
+      "@mui/system": ["src/docs/mock/mui-system"]
     }
   },
   "include": ["node_modules/vite/client.d.ts", "src/**/*"]
