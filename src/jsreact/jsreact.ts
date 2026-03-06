@@ -562,7 +562,6 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
     } else {
       const displayName = (childType as NamedExoticComponent).displayName;
       keyRight = displayName || (childType as JSXElementConstructor).name;
-      if (keyRight === "Insertion") console.log("ayaya.FOO", child)
       $$typeof = typeOf(child);
       if ($$typeof) keyRight = keyRight ? `${keyRight}_${String($$typeof)}` : String($$typeof);
     }
@@ -628,7 +627,6 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
-          if (prevNode.props.label === "Foo") console.log("ayaya.cachedChildOrder", component, component.instance);
           for (let child of component.instance as CachedChildOrder) childOrder.push(child);
           return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
@@ -778,7 +776,6 @@ function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOr
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null && !(parentElement instanceof Text)) {
-    if (parentElement.classList.contains("MuiStack-root")) console.log("ayaya.order", parent, childOrder)
     let prevElement = null as Element|null;
     for (const c of childOrder) {
       const childElement = c.element!;
@@ -1081,7 +1078,6 @@ export function useEffect(setup: UseEffectSetup, dependencies?: any[]): void {
 /** Run `setup()` before refs are set, individually for each component */
 const USE_INSERTION_EFFECT_SYMBOL = Symbol.for("useInsertionEffect()");
 export function useInsertionEffect(setup: UseEffectSetup, dependencies?: any[]) {
-  console.log("ayaya.useInsertionEffect", setup, dependencies);
   const hook = useHook<UseEffect>({ $$typeof: USE_INSERTION_EFFECT_SYMBOL, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];

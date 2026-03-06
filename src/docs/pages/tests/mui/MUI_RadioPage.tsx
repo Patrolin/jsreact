@@ -1,8 +1,16 @@
 import { __getCurrentComponent } from "@/jsreact";
 import { FormControl, FormControlLabel, FormLabel, Radio, RadioGroup } from "@mui/material";
-import { FC, useId, useState } from "react";
+import { FC, useId, useInsertionEffect, useState } from "react";
 import React from 'react'
 console.log("ayaya.useInsertionEffect", React.useInsertionEffect, React.useLayoutEffect)
+
+const CheckIcon: FC<{checked?: boolean}> = (props) => {
+  useInsertionEffect(() => {
+    console.log("ayaya.checkIcon", props.checked ?? false);
+  });
+}
+const checkedIcon = <CheckIcon checked />;
+const uncheckedIcon = <CheckIcon />;
 
 type Gender = "male" | "female";
 export const MUI_RadioPage: FC = () => {
@@ -13,6 +21,7 @@ export const MUI_RadioPage: FC = () => {
   return (
     <div>
       <button onClick={() => setFoo(!foo)}>Toggle</button>
+      {foo ? checkedIcon : uncheckedIcon}
       <div style={{ display: "inline-flex", flexDirection: "column" }}>
         <input type="radio" name="foo" checked={foo} onChange={() => setFoo(true)} />
         <input type="radio" name="foo" checked={!foo} onChange={() => setFoo(false)} />
