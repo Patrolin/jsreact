@@ -211,6 +211,7 @@ export const Fragment = Symbol.for("react.fragment");
 const EXOTIC_MEMO = Symbol.for("react.memo");
 type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
 function defaultArePropsEqual(a: Record<string, any>, b: Record<string, any>) {
+  /* NOTE: https://jsperf.app/qiduza */
   for (let key of Object.keys(a)) {
     if (!Object.is(a[key], b[key])) return false;
   }
