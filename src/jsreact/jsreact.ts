@@ -211,9 +211,13 @@ export const Fragment = Symbol.for("react.fragment");
 const EXOTIC_MEMO = Symbol.for("react.memo");
 type MemoComponent = NamedExoticComponent & {$$arePropsEqual: (a: object, b: object) => boolean};
 function defaultArePropsEqual(a: Record<string, any>, b: Record<string, any>) {
-  const keys = new Set(Object.keys(a));
-  for (const k of Object.keys(b)) keys.add(k);
-  return Array.from(keys).some(k => Object.is(a[k], b[k]));
+  for (let key of Object.keys(a)) {
+    if (!Object.is(a[key], b[key])) return false;
+  }
+  for (let key of Object.keys(b)) {
+    if (!Object.is(a[key], b[key])) return false;
+  }
+  return true;
 }
 function _makeExoticComponent<P = {}>($$typeof: symbol, render?: JSXElementConstructor<PropsWithChildren<P>>): NamedExoticComponent<P> {
   if (render == null) {
@@ -627,9 +631,11 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
+          console.log("ayaya.REUSE MEMO", prevNode, leaf);
           for (let child of component.instance as CachedChildOrder) childOrder.push(child);
           return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
+        console.log("ayaya.REGEN MEMO")
         memoChildOrderStart = childOrder.length;
         /* NOTE: fallthrough */
       case EXOTIC_CONTEXT_PROVIDER:

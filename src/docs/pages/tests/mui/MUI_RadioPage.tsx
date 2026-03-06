@@ -1,27 +1,13 @@
-import { __getCurrentComponent } from "@/jsreact";
 import { FormControl, FormControlLabel, FormLabel, Radio, RadioGroup } from "@mui/material";
-import { FC, useId, useInsertionEffect, useState } from "react";
-import React from 'react'
-console.log("ayaya.useInsertionEffect", React.useInsertionEffect, React.useLayoutEffect)
-
-const CheckIcon: FC<{checked?: boolean}> = (props) => {
-  useInsertionEffect(() => {
-    console.log("ayaya.checkIcon", props.checked ?? false);
-  });
-}
-const checkedIcon = <CheckIcon checked />;
-const uncheckedIcon = <CheckIcon />;
+import { FC, useId, useState } from "react";
 
 type Gender = "male" | "female";
 export const MUI_RadioPage: FC = () => {
   const [state, setState] = useState(null as Gender | null);
   const name = useId();
-  const [foo, setFoo] = useState(false);
-  console.log(__getCurrentComponent().root);
+  const [foo, setFoo] = useState(true);
   return (
     <div>
-      <button onClick={() => setFoo(!foo)}>Toggle</button>
-      {foo ? checkedIcon : uncheckedIcon}
       <div style={{ display: "inline-flex", flexDirection: "column" }}>
         <input type="radio" name="foo" checked={foo} onChange={() => setFoo(true)} />
         <input type="radio" name="foo" checked={!foo} onChange={() => setFoo(false)} />
@@ -36,7 +22,7 @@ export const MUI_RadioPage: FC = () => {
           <FormControlLabel value="male" control={<Radio />} label="Male" />
         </RadioGroup>
       </FormControl>
-      {/*<FormControl style={{ margin: 8 }}>
+      <FormControl style={{ margin: 8 }}>
         <FormLabel>Controlled</FormLabel>
         <RadioGroup
           name={name}
@@ -46,7 +32,7 @@ export const MUI_RadioPage: FC = () => {
           <FormControlLabel value="female" control={<Radio />} label="Female" />
           <FormControlLabel value="male" control={<Radio />} label="Male" />
         </RadioGroup>
-      </FormControl>*/}
+      </FormControl>
     </div>
   );
 };
