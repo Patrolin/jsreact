@@ -1118,7 +1118,7 @@ export function useCallback<T extends Function, D = any>(callback: T, dependenci
   return hook.current;
 }
 export function useId(_idProp_legacy: any): string {
-  return String($component.root.hookIndex++);
+  return `_${$component.root.hookIndex++}`;
 }
 export function useDebugValue<T>(_value: T, _formatter?: (value: T) => any) {
   // TODO: maybe store the debug value?
