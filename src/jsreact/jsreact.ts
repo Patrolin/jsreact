@@ -632,11 +632,9 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
-          console.log("ayaya.REUSE MEMO", prevNode, leaf);
           for (let child of component.instance as CachedChildOrder) childOrder.push(child);
           return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
         }
-        console.log("ayaya.REGEN MEMO")
         memoChildOrderStart = childOrder.length;
         /* NOTE: fallthrough */
       case EXOTIC_CONTEXT_PROVIDER:
