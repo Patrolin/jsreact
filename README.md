@@ -97,8 +97,7 @@ But the order between different components is not defined, and both we and React
     |bar.render()             |foo.componentDidUpdate() |foo.componentDidUpdate() |
     |bar.componentDidUpdate() |bar.componentDidUpdate() |bar.componentDidUpdate() |
 
-2) For `<input value="" />`, React rerenders every time you type a character, even though there is no event handler, but we do not.
-3) See also: [Environment variables](#environment-variables-)
+2) See also: `JSREACT_SLOW_EVENT_HANDLERS`, `JSREACT_SLOW_MEMO`, `JSREACT_MAP_ONCHANGE_TO_ONINPUT` in [Environment variables](#environment-variables-)
 
 ## Benchmarks [⤴](#jsreact)
 For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
@@ -213,7 +212,8 @@ TODO: make a benchmark with lots of MUI TextFields
     JSREACT_SLOW_MEMO?: boolean|"";
     /** If true, mimic React's behavior to remap `onChange` to `onInput` for <input> and <textarea> elements */
     JSREACT_MAP_ONCHANGE_TO_ONINPUT?: boolean|"";
-    /** If true, set `inputElement.value = props.value` for <input> and <textarea> elements, NOTE: this breaks uncontrolled fields in MUI. */
+    /** If true, set `inputElement.value = props.value` for <input> elements, NOTE: This breaks uncontrolled fields in MUI.
+     *  NOTE: Always true for <textarea> elements... */
     JSREACT_CONTROLLED_HTML_INPUTS?: boolean|"";
     /** If true, render `memo()` components as regular components */
     JSREACT_ALWAYS_RENDER_MEMO?: boolean|"";
