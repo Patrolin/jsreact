@@ -4,7 +4,7 @@ import { FC, memo, useRef } from "react";
 /** FastTextField v4
  * - static event handlers
  * - memoize on props, and deep equals on `style`, `sx`
- * - helper props better memoization (only in jsreact)
+ * - helper props for better memoization (only in jsreact)
  */
 export const FastTextField: FC<TextFieldProps> = (props) => {
   // cache event listeners
