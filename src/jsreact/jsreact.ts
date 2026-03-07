@@ -512,6 +512,15 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
       delete rest.checked;
     }
   }
+  /* NOTE: we need bubbling for `onFocus` and `onBlur`, and in practice all browsers support `focusin` and `focusout` */
+  if ("onFocus" in rest) {
+    rest.onFocusIn = rest.onFocus;
+    delete rest.onFocus;
+  }
+  if ("onBlur" in rest) {
+    rest.onFocusOut = rest.onBlur;
+    delete rest.onBlur;
+  }
   for (const [key, value] of Object.entries(rest)) {
     if (key.startsWith("on") && key.length > 2) {
       const isCapturing = key.endsWith("Capture");
