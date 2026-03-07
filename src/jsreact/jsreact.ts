@@ -635,8 +635,9 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
         if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
-          for (let child of component.instance as CachedChildOrder) childOrder.push(child);
-          return; /* NOTE: since we never call `jsreact$renderChildren()`, we don't have to set `FLAGS_GC` for descendants */
+          for (const child of component.instance as CachedChildOrder) childOrder.push(child);
+          setMemoComponentDescendantsGcFlag(component);
+          return;
         }
         memoChildOrderStart = childOrder.length;
         /* NOTE: fallthrough */
@@ -780,7 +781,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
 }
 function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
   if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement);
-  unmountUnusedChildren(parent, parent.flags & FLAGS_GC, true);
+  unmountUnusedDescendants(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
   if (parentElement != null && !(parentElement instanceof Text)) {
@@ -796,7 +797,13 @@ function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOr
     }
   }
 }
-function unmountUnusedChildren(parent: VirtNode, parentGcFlag: number, removeChildrenFromDOM: boolean) {
+function setMemoComponentDescendantsGcFlag(parent: VirtNode) {
+  for (const child of Object.values(parent.children)) {
+    child.flags = parent.flags & FLAGS_GC;
+    setMemoComponentDescendantsGcFlag(child);
+  }
+}
+function unmountUnusedDescendants(parent: VirtNode, parentGcFlag: number, removeChildrenFromDOM: boolean) {
   for (const component of Object.values(parent.children)) {
     if (component.flags !== parentGcFlag) {
       delete parent.children[component.key]; /* delete old state */
@@ -834,7 +841,7 @@ function unmountUnusedChildren(parent: VirtNode, parentGcFlag: number, removeChi
           }
         }
       }
-      unmountUnusedChildren(component, parentGcFlag, removeChildrenFromDOM);
+      unmountUnusedDescendants(component, parentGcFlag, removeChildrenFromDOM);
     }
   }
 }
