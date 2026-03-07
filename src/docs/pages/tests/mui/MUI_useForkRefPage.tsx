@@ -7,7 +7,7 @@ type ForkRefComponentProps = {
 const ForkRefComponent: React.FC<ForkRefComponentProps> = (props) => {
   const { ref } = props;
   const baseRef: React.Ref<HTMLDivElement> = (...args) => {
-    console.log("ayaya.baseRef", ...args);
+    console.log("baseRef", ...args);
   };
   const handleRefs = useForkRef(ref, baseRef);
   return <div ref={handleRefs}>Foo</div>;
@@ -15,12 +15,12 @@ const ForkRefComponent: React.FC<ForkRefComponentProps> = (props) => {
 
 export const MUI_useForkRefPage: React.FC = () => {
   const [state, setState] = useState({foo: 1});
-  console.log("ayaya.reload");
+  console.log("reload");
   const [show, setShow] = useState(false);
   const userRef: React.Ref<HTMLDivElement> = (...args) => {
-    console.log("ayaya.userRef", ...args);
+    console.log("userRef", ...args);
     return () => {
-      console.log("ayaya.userRef.cleanup", ...args);
+      console.log("userRef.cleanup", ...args);
     }
   };
   return (

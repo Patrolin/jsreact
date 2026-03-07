@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import path from "path";
 
 type VitePreset = {
+  name: string;
   tsConfig: any;
   aliases?: Alias[];
   plugins?: PluginOption[];
@@ -13,12 +14,14 @@ function getVitePreset(mode: string): VitePreset {
   switch (mode) {
   case "react": {
     return {
+      name: "react",
       tsConfig: require("./tsconfig.react.json"),
       plugins: [react()],
     };
   } break;
   case "preact": {
     return {
+      name: "preact",
       tsConfig: require("./tsconfig.preact.json"),
       plugins: [
         preact(),
@@ -34,6 +37,7 @@ function getVitePreset(mode: string): VitePreset {
   } break;
   default: {
     return {
+      name: "jsreact",
       tsConfig: require("./tsconfig.json"),
       aliases: [
         { find: "react", replacement: path.resolve(__dirname, "src/jsreact") },
@@ -49,7 +53,7 @@ function getVitePreset(mode: string): VitePreset {
 
 // https://vitejs.dev/config/
 export default defineConfig(({mode}) => {
-  const {plugins, aliases=[], tsConfig, excludeOptimizeDeps=[]} = getVitePreset(mode);
+  const {name, plugins, aliases=[], tsConfig, excludeOptimizeDeps=[]} = getVitePreset(mode);
   const config: UserConfig = {
     envPrefix: ["VITE_", "JSREACT_"],
     plugins,
@@ -65,6 +69,7 @@ export default defineConfig(({mode}) => {
     optimizeDeps: { exclude: [...excludeOptimizeDeps, "@mui/material", "@mui/utils", "@mui/system"] },
     server: { port: 3000, strictPort: true },
     define: {
+      'import.meta.env.PRESET_NAME': JSON.stringify(name),
       // support for mock/mui-material
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     }

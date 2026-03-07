@@ -8,7 +8,7 @@ export const SubmitCorrectnessTest: FC = () => {
     <div style={{ padding: 8 }}>
       <input
         onChange={(event) => {
-          console.log("ayaya.onChange", event.target.value);
+          console.log("onChange", event.target.value);
           setUsername(event.target.value);
         }}
       />

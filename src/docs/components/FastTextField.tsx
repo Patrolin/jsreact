@@ -4,7 +4,7 @@ import { FC, memo, useRef } from "react";
 /** FastTextField v4
  * - static event handlers
  * - memoize on props, and deep equals on `style`, `sx`
- * - 
+ * - helper props better memoization (only in jsreact)
  */
 export const FastTextField: FC<TextFieldProps> = (props) => {
   // cache event listeners
@@ -34,7 +34,8 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
     cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
   const env = import.meta.env;
-  const SLOW_MEMO = "JSREACT_SLOW_MEMO" in env && env.JSREACT_SLOW_MEMO === "true";
+  const SLOW_MEMO = env.PRESET_NAME !== "jsreact" || env.JSREACT_SLOW_MEMO === "true";
+  console.log("ayaya.SLOW_MEMO", SLOW_MEMO);
   /* NOTE: MUI TextField needs to rerender twice if you change whether the value is filled... */
   const wasFilled = cache.current.wasFilled && !SLOW_MEMO;
   cache.current.wasFilled = Boolean(props.value);

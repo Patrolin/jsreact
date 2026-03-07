@@ -12,7 +12,6 @@ export const MUI_CheckboxPage: FC = () => {
     { value: 2, label: "Zee" },
   ];
   const [values, setValues] = useState({} as Record<Option["value"], boolean | undefined>);
-  console.log("ayaya.rerender!!", __getCurrentComponent().root)
   return (
     <FormGroup style={{ marginLeft: 8 }}>
       {OPTIONS.map((option, i) => (
