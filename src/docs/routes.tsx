@@ -110,7 +110,7 @@ export const routes: Route[] = [
   },
   {
     path: "/textField",
-    label: "MUI MUI_TextField",
+    label: "MUI TextField",
     component: MUI_TextFieldPage,
   },
   {

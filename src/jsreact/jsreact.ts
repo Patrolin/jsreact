@@ -38,6 +38,7 @@ const WARN_RENDER_MS = parseEnvNumber("JSREACT_WARN_RENDER_MS", env.JSREACT_WARN
 const INFINITE_LOOP_COUNT = parseEnvNumber("JSREACT_INFINITE_LOOP_COUNT", env.JSREACT_INFINITE_LOOP_COUNT);
 const INFINITE_LOOP_PAUSE = parseEnvBoolean("JSREACT_INFINITE_LOOP_PAUSE", env.JSREACT_INFINITE_LOOP_PAUSE) ?? false;
 const SLOW_EVENT_HANDLERS = parseEnvBoolean("JSREACT_SLOW_EVENT_HANDLERS", env.JSREACT_SLOW_EVENT_HANDLERS) ?? false;
+const SLOW_MEMO = parseEnvBoolean("JSREACT_SLOW_MEMO", env.JSREACT_SLOW_MEMO) ?? false;
 const MAP_ONCHANGE_TO_ONINPUT = parseEnvBoolean("JSREACT_MAP_ONCHANGE_TO_ONINPUT", env.JSREACT_MAP_ONCHANGE_TO_ONINPUT) ?? false;
 const CONTROLLED_HTML_INPUTS = parseEnvBoolean("JSREACT_CONTROLLED_HTML_INPUTS", env.JSREACT_CONTROLLED_HTML_INPUTS) ?? false;
 const ALWAYS_RENDER_MEMO = parseEnvBoolean("JSREACT_ALWAYS_RENDER_MEMO", env.JSREACT_ALWAYS_RENDER_MEMO) ?? false;
@@ -90,7 +91,7 @@ export type JsReactElement<P = any, T extends string | symbol | JSXElementConstr
   $$typeof: symbol;
   /** string | symbol | Component | NamedExoticComponent */
   type: T;
-  props: P;
+  props: PropsWithChildren<P>;
   key?: string | null;
   source?: {
     fileName: string;
@@ -173,8 +174,9 @@ function findDOMNode_firstElement(component: VirtNode | undefined) {
   return findDOMNode_firstElement(firstChild);
 }
 export function findDOMNode(classComponent: ComponentInstance) {
-  const component = findDOMNode_Component(classComponent, $component.root);
-  return findDOMNode_firstElement(component);
+  const component = $component;
+  const virtNode = findDOMNode_Component(classComponent, component.root);
+  return findDOMNode_firstElement(virtNode);
 }
 /** NOTE: libraries use this to detect React features... */
 export const version = 19;
@@ -321,12 +323,12 @@ type VirtNode = {
   node: JsReactNode;
   /** the HTML or SVG element derived from JSX */
   element: Element | SVGElement | undefined;
-  /** used to implement ComponentClass, RootHooks on root component, or CachedChildOrder on EXOTIC_MEMO components */
+  /** used to implement ComponentClass, RootHooks on root component */
   instance: ComponentInstance<any, any> | RootHooks | CachedChildOrder | undefined;
+  /** used by `useId()` on RootComponent, else used to implement hooks */
+  hookIndex: number;
   /** used to catch errors */
   prevHookIndex: number;
-  /** used by `useId()` on RootComponent, else used to catch errors */
-  hookIndex: number;
   /** `prevClassNames: string[]` for ElementComponent, else `hooks: Hook[]` */
   hooks: Hook[] | string[];
   /** the key that the component was rendered as */
@@ -335,6 +337,8 @@ type VirtNode = {
   children: Record<string, VirtNode>;
   /** used to generate default keys for children */
   childrenIndex: number;
+  /** used to implement memo() components */
+  memoChildren: JsReactNode[];
   /** used to implement HTML event listeners */
   prevEventHandlers: Record<string, PrevEventHandler|undefined>;
   /** used to implement hooks and rerender() */
@@ -346,14 +350,16 @@ type PrevEventHandler<T = Event> = {
   raw: ReactEventHandler<T> | null | undefined;
   mapped: EventHandler<T> | null | undefined;
 };
-const FLAGS_TAB_LOST_FOCUS = 16;
-const FLAGS_RERENDERED_THIS_FRAME = 8;
-const FLAGS_IS_RENDERING = 4;
-const FLAGS_WILL_RERENDER = 2;
+const FLAGS_TAB_LOST_FOCUS = 32;
+const FLAGS_RERENDERED_THIS_FRAME = 16;
+const FLAGS_IS_RENDERING = 8;
+const FLAGS_WILL_RERENDER = 4;
+const FLAGS_COMPONENT_STATE_IS_DIRTY = 2;
 const FLAGS_GC = 1;
 function _printFlags(flags: number) {
   const acc: string[] = [];
   if (flags & FLAGS_GC) acc.push("FLAGS_GC");
+  if (flags & FLAGS_COMPONENT_STATE_IS_DIRTY) acc.push("FLAGS_COMPONENT_STATE_IS_DIRTY");
   if (flags & FLAGS_WILL_RERENDER) acc.push("FLAGS_WILL_RERENDER");
   if (flags & FLAGS_IS_RENDERING) acc.push("FLAGS_IS_RENDERING");
   if (flags & FLAGS_RERENDERED_THIS_FRAME) acc.push("FLAGS_RERENDERED_THIS_FRAME");
@@ -566,10 +572,10 @@ function setRef<T>(ref: Ref<T> | undefined | null, value: T) {
   if (typeof ref === "function") ref(value);
   else if (ref) ref.current = value;
 }
-function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
+function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean, isUnderMemo: boolean) {
   // recurse
   if (isIterable(child)) {
-    for (const c of child) jsreact$renderJsxChildren(parent, c as JsReactNode, childOrder, parentIsSvgElement);
+    for (const c of child) jsreact$renderJsxChildren(parent, c as JsReactNode, childOrder, parentIsSvgElement, isUnderMemo);
     return;
   }
   // get component state
@@ -606,25 +612,31 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       hookIndex: 0,
       hooks: [],
       key,
-      childrenIndex: 0,
       children: {},
+      childrenIndex: 0,
+      memoChildren: [],
       prevEventHandlers: {},
       root: parent.root,
       flags: 0,
     };
     parent.children[key] = component;
   }
+  parent.memoChildren.push(child);
+  const memoChildren = component.memoChildren;
+  component.memoChildren = [];
   component.childrenIndex = 0;
   component.prevHookIndex = component.hookIndex;
   component.hookIndex = 0;
-  component.flags = parent.flags & FLAGS_GC; /* NOTE: parent.flags can get set concurrently, so we need to filter them here */
+  const isComponentStateDirty = component.flags & FLAGS_COMPONENT_STATE_IS_DIRTY;
+  component.flags = parent.flags & FLAGS_GC; /* NOTE: parent.flags can get set concurrently */
   // run user code
   $component = component;
   let leaf: JsReactNode = child;
   let desiredElementType = "";
-  let context: Context<any> | undefined;
+  let context: Context<any>|undefined;
   let prevContextValue: any;
-  let memoChildOrderStart: number | undefined;
+  isUnderMemo = isUnderMemo && !isComponentStateDirty;
+  let cachedChildOrderStart: number|undefined;
   if (!isValidElement(leaf)) {
     // Value
     if (typeof leaf === "boolean" || leaf == null) return;
@@ -648,20 +660,26 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       } break;
       case EXOTIC_MEMO:
         const prevNode = component.node as JsReactElement|null;
-        if (prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object)) {
+        isUnderMemo = prevNode != null && (leafType as MemoComponent).$$arePropsEqual(prevNode.props, leaf.props as object);
+        if (isUnderMemo && !SLOW_MEMO) {
           for (const child of component.instance as CachedChildOrder) childOrder.push(child);
           setMemoComponentDescendantsGcFlag(component);
           return;
         }
-        memoChildOrderStart = childOrder.length;
+        cachedChildOrderStart = childOrder.length;
         /* NOTE: fallthrough */
       case EXOTIC_CONTEXT_PROVIDER:
       case EXOTIC_CONTEXT_CONSUMER:
       case undefined: {
         if ($$typeof === EXOTIC_CONTEXT_PROVIDER) {
-          context = leafType as Context<any>;
+          context = (leaf as JsReactElement).type as Context<any>;
           prevContextValue = context._currentValue;
           context._currentValue = (leaf as JsReactElement).props.value;
+        }
+        if (isUnderMemo) {
+          leaf = memoChildren;
+          component.hookIndex = component.prevHookIndex;
+          break;
         }
         if (isComponentClass(leafType)) {
           // class props
@@ -785,16 +803,16 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
     }
   }
   // render children
-  const children: JsReactNode = leaf === child ? (leaf as JsReactElement|null)?.props?.children as JsReactNode : leaf;
-  jsreact$renderChildren(component, children, childOrder, parentIsSvgElement);
+  const children: JsReactNode = leaf === child ? (leaf as JsReactElement|null)?.props?.children : leaf;
+  jsreact$renderChildren(component, children, childOrder, parentIsSvgElement, isUnderMemo);
   if (context != null) context._currentValue = prevContextValue;
-  if (memoChildOrderStart != null) {
-    const cachedChildOrder: CachedChildOrder = childOrder.slice(memoChildOrderStart);
+  if (cachedChildOrderStart != null) {
+    const cachedChildOrder: CachedChildOrder = childOrder.slice(cachedChildOrderStart);
     component.instance = cachedChildOrder;
   }
 }
-function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean) {
-  if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement);
+function jsreact$renderChildren(parent: VirtNode, children: JsReactNode, childOrder: VirtNode[], parentIsSvgElement: boolean, isUnderMemo: boolean) {
+  if (children != null) jsreact$renderJsxChildren(parent, children, childOrder, parentIsSvgElement, isUnderMemo);
   unmountUnusedDescendants(parent, parent.flags & FLAGS_GC, true);
   // reorder used children
   const parentElement = parent.element;
@@ -904,6 +922,7 @@ export function prettifyError(prefix: any, error: string|undefined|null, verbose
 let renderCount = 0;
 export function getRenderCount(): number {return renderCount}
 function rerender(component: VirtNode) {
+  component.flags = component.flags | FLAGS_COMPONENT_STATE_IS_DIRTY;
   let whyDidYouRender: string|null = null;
   if (WHY_DID_YOU_RENDER_PREFIX != null) whyDidYouRender = prettifyError("", whoami(), WHY_DID_YOU_RENDER_VERBOSE);
   const rootComponent = component.root;
@@ -925,7 +944,7 @@ function rerender(component: VirtNode) {
       rootComponent.childrenIndex = 0;
       rootComponent.hookIndex = 0;
       rootComponent.flags = ((rootComponent.flags ^ FLAGS_GC) & ~FLAGS_WILL_RERENDER) | FLAGS_IS_RENDERING;
-      await jsreact$renderChildren(rootComponent, rootComponent.node, [], false);
+      await jsreact$renderChildren(rootComponent, rootComponent.node, [], false, false);
       // run pending effects
       const {legacyComponentUpdates, legacySetStateCallbacks, useLayoutEffects} = rootComponent.instance as RootHooks;
       (rootComponent.instance as RootHooks) = {
@@ -988,8 +1007,9 @@ export function createRoot(parent: HTMLElement) {
       hookIndex: 0,
       hooks: [],
       key: "root",
-      childrenIndex: 0,
       children: {},
+      childrenIndex: 0,
+      memoChildren: [],
       prevEventHandlers: {},
       root: undefined as unknown as VirtNode,
       flags: 0,
@@ -1023,13 +1043,15 @@ type RootHooks = {
 }
 type UseLegacyComponentUpdate = { callback: () => void };
 function useLegacyComponentUpdate(callback: () => void) {
-  const rootHooks = $component.root.instance as RootHooks;
+  const component = $component;
+  const rootHooks = component.root.instance as RootHooks;
   rootHooks.legacyComponentUpdates.push({ callback });
 }
 type UseLegacySetStateCallback = { callback: () => void };
 function useLegacySetStateCallback(callback: (() => void) | null | undefined) {
+  const component = $component;
   if (callback != null) {
-    const rootHooks = $component.root.instance as RootHooks;
+    const rootHooks = component.root.instance as RootHooks;
     rootHooks.legacySetStateCallbacks.push({ callback });
   }
 }
@@ -1037,12 +1059,13 @@ type Hook = { $$typeof?: symbol };
 type NamedHook<T = {}> = T & Required<Hook>;
 export const useRerender = () => () => rerender($component);
 export function useHook<T extends object>(defaultState: T = {} as T): T {
-  const index = $component.hookIndex++;
-  if (index >= $component.hooks.length) {
-    if ($component.prevHookIndex === 0) ($component.hooks as Hook[]).push(Object.seal(defaultState));
-    else throw new RangeError(`Components must have a constant number of hooks, got: ${$component.hookIndex}, expected: ${$component.prevHookIndex}`);
+  const component = $component;
+  const index = component.hookIndex++;
+  if (index >= component.hooks.length) {
+    if (component.prevHookIndex === 0) (component.hooks as Hook[]).push(Object.seal(defaultState));
+    else throw new RangeError(`Components must have a constant number of hooks, got: ${component.hookIndex}, expected: ${component.prevHookIndex}`);
   }
-  return $component.hooks[index] as T;
+  return component.hooks[index] as T;
 }
 const USE_LEGACY_WILL_UNMOUNT_SYMBOL = Symbol.for("useLegacyWillUnmount()");
 type UseLegacyWillUnmount = NamedHook<{ callback: ((this: ComponentInstance) => void) | undefined | null }>;
@@ -1059,24 +1082,26 @@ export function createRef<T = undefined>(initialValue?: T): MutableRef<T> {
   return Object.seal({current: initialValue as T});
 }
 export function useRef<T = undefined>(initialValue?: T): MutableRef<T> {
-  const prevHookCount = $component.hooks.length;
+  const component = $component;
+  const prevHookCount = component.hooks.length;
   const hook = useHook({ current: undefined as T });
-  if ($component.hookIndex > prevHookCount) hook.current = initialValue as T;
+  if (component.hookIndex > prevHookCount) hook.current = initialValue as T;
   return hook;
 }
 function isCallback<T, C extends Function>(value: T | C): value is C {return typeof value === "function"}
 export function useState<T = undefined>(initialState?: T | (() => T)): [T, (newValue: T) => void] {
-  const prevHookCount = $component.hooks.length;
+  const component = $component;
+  const prevHookCount = component.hooks.length;
   type SetStateFunction = (newState: T | ((state: T) => T)) => void;
   const hook = useHook({ state: undefined as T, setState: (() => {}) as SetStateFunction });
-  if ($component.hookIndex > prevHookCount) {
+  if (component.hookIndex > prevHookCount) {
     if (isCallback(initialState)) hook.state = initialState();
     else hook.state = initialState as T;
     const setState = (newState: T | ((state: T) => T)) => {
       if (isCallback(newState)) newState = newState(hook.state);
       if (!Object.is(hook.state, newState)) {
         hook.state = newState;
-        rerender($component);
+        rerender(component);
       }
     };
     hook.setState = setState;
@@ -1118,11 +1143,12 @@ const USE_LAYOUT_EFFECT_SYMBOL = Symbol.for("useLayoutEffect()");
 type UseLayoutEffect = NamedHook<UseEffect & {setup: UseEffectSetup}>
 /** Run `setup()` after layout of this render */
 export function useLayoutEffect(setup: UseEffectSetup, dependencies?: any[]) {
+  const component = $component;
   const hook = useHook<UseLayoutEffect>({ $$typeof: USE_LAYOUT_EFFECT_SYMBOL, setup, cleanup: null, prevDeps: null });
   if (dependenciesDiffer(hook.prevDeps, dependencies)) {
     hook.prevDeps = [...(dependencies ?? [])];
     hook.setup = setup;
-    const rootHooks = $component.root.instance as RootHooks;
+    const rootHooks = component.root.instance as RootHooks;
     rootHooks.useLayoutEffects.push(hook);
   }
 }
@@ -1143,15 +1169,17 @@ export function useCallback<T extends Function, D = any>(callback: T, dependenci
   return hook.current;
 }
 export function useId(_idProp_legacy: any): string {
-  return `_${$component.root.hookIndex++}`;
+  const component = $component;
+  return `_${component.root.hookIndex++}`;
 }
 export function useDebugValue<T>(_value: T, _formatter?: (value: T) => any) {
   // TODO: maybe store the debug value?
 }
 export function useReducer<S, A>(reducer: (state: S, action: A) => S, initialArg: S, init?: (initialArg: S) => S): [S, (action: A) => void] {
-  const prevHookCount = $component.hooks.length;
+  const component = $component;
+  const prevHookCount = component.hooks.length;
   const hook = useHook({ state: undefined as S });
-  if ($component.hookIndex > prevHookCount) {
+  if (component.hookIndex > prevHookCount) {
     if (init != null) hook.state = init(initialArg);
     else hook.state = initialArg;
   }

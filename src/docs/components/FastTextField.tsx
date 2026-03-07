@@ -4,6 +4,7 @@ import { FC, memo, useRef } from "react";
 /** FastTextField v4
  * - static event handlers
  * - memoize on props, and deep equals on `style`, `sx`
+ * - 
  */
 export const FastTextField: FC<TextFieldProps> = (props) => {
   // cache event listeners
@@ -11,6 +12,7 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
     staticEventHandlers: {} as Record<string, (...args: any) => void>,
     currentEventHandlers: {} as Record<string, (...args: any) => void>,
     didBlur: false,
+    wasFilled: Boolean(props.value),
   });
   const mappedProps = {} as Record<string, any>;
   mappedProps.onBlur = cache.current.staticEventHandlers.onBlur =
@@ -31,13 +33,17 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
   for (const k of Object.keys(cache.current.staticEventHandlers)) {
     cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
-  const didBlur = cache.current.didBlur; /* NOTE: MUI TextField needs to rerender an extra time after blur */
-  cache.current.didBlur = false;
-  return <FastTextFieldMemo {...mappedProps} didBlur={didBlur} />;
+  const SLOW_MEMO = import.meta.env.JSREACT_SLOW_MEMO === "true";
+  /* NOTE: MUI TextField needs to rerender twice if you change whether the value is filled... */
+  const wasFilled = cache.current.wasFilled && !SLOW_MEMO;
+  cache.current.wasFilled = Boolean(props.value);
+  /* NOTE: MUI TextField needs to rerender an extra time after blur */
+  const didBlur = cache.current.didBlur && !SLOW_MEMO;
+  return <FastTextFieldMemo {...mappedProps} wasFilled={wasFilled} didBlur={didBlur} />;
 };
 const FastTextFieldMemo = memo(
-  (props: TextFieldProps & { didBlur: boolean }) => {
-    const { didBlur, ...rest } = props;
+  (props: TextFieldProps & { wasFilled: boolean; didBlur: boolean }) => {
+    const { wasFilled, didBlur, ...rest } = props;
     console.log("FastTextFieldMemo");
     return <TextField {...rest} />;
   },
