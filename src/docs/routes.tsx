@@ -7,7 +7,7 @@ import { MUIX_DatePickerPage } from "./pages/tests/mui-x/MUIX_DatePickerPage";
 import { MUI_ButtonPage } from "./pages/tests/mui/MUI_ButtonPage";
 import { MUI_CheckboxPage } from "./pages/tests/mui/MUI_CheckboxPage";
 import { MUI_ControlledInputPage } from "./pages/tests/mui/MUI_ControlledInputPage";
-import { MUI_OutlinedInputPage } from "./pages/tests/mui/MUI_OutlinedInputPage";
+import { MUI_TextFieldPage } from "./pages/tests/mui/MUI_TextFieldPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
 import { MUI_RadioPage } from "./pages/tests/mui/MUI_RadioPage";
@@ -109,9 +109,9 @@ export const routes: Route[] = [
     component: MUI_SliderPage,
   },
   {
-    path: "/outlinedInput",
-    label: "MUI OutlinedInput",
-    component: MUI_OutlinedInputPage,
+    path: "/textField",
+    label: "MUI MUI_TextField",
+    component: MUI_TextFieldPage,
   },
   {
     path: "/stack",

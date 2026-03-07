@@ -500,8 +500,13 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
     }
     if ("value" in rest) {
       const value = rest.value ?? "";
-      element.setAttribute("value", value);
-      if (CONTROLLED_HTML_INPUTS) (element as HTMLInputElement|HTMLTextAreaElement).value = value;
+      if (desiredElementType === "textarea") {
+        element.textContent = value; /* NOTE: set the default value */
+        (element as HTMLTextAreaElement).value = value;
+      } else {
+        element.setAttribute("value", value); /* NOTE: set the default value */
+        if (CONTROLLED_HTML_INPUTS) (element as HTMLInputElement).value = value;
+      }
       delete rest.value;
     }
     if ("checked" in rest) {
