@@ -202,13 +202,16 @@ TODO: make a benchmark with lots of MUI TextFields
     /** If true, run a `debugger;` statement before the nth render
      *  instead of throwing an exception. */
     JSREACT_INFINITE_LOOP_PAUSE?: boolean|"";
-    /** If true, mimic React's behavior of scheduling infrequent rerenders before other event handlers instead of after, for example:
+    /** If true, mimic React's behavior to schedule infrequent rerenders before other event handlers instead of after, for example:
      *    <button onMouseUp={() => setState(state + 1)} onClick={() => setState(state + 1)}>
      *      +1
      *    </button>
      *  This would increment the state by 2 instead of 1. This results in more renders (for no practical reason). */
     JSREACT_SLOW_EVENT_HANDLERS?: boolean|"";
-    /** If true, mimic React's behavior of remapping `onChange` to `onInput` for <input> and <textarea> elements */
+    /** If true, mimic React's behavior to allow rerendering a component under a memo() component without rerendering the memo() component itself.
+     * This comes at a heavy performance cost. Prefer passing helper props to define when the component should rerender instead. */
+    JSREACT_SLOW_MEMO?: boolean|"";
+    /** If true, mimic React's behavior to remap `onChange` to `onInput` for <input> and <textarea> elements */
     JSREACT_MAP_ONCHANGE_TO_ONINPUT?: boolean|"";
     /** If true, set `inputElement.value = props.value` for <input> and <textarea> elements, NOTE: this breaks uncontrolled fields in MUI. */
     JSREACT_CONTROLLED_HTML_INPUTS?: boolean|"";
