@@ -1,3 +1,4 @@
+import { __getCurrentComponent } from "@/jsreact";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
@@ -8,10 +9,12 @@ export const MUI_CheckboxPage: FC = () => {
   const OPTIONS: Option[] = [
     { value: 0, label: "Foo" },
     { value: 1, label: "Bar" },
+    { value: 2, label: "Zee" },
   ];
   const [values, setValues] = useState({} as Record<Option["value"], boolean | undefined>);
+  console.log("ayaya.rerender!!", __getCurrentComponent().root)
   return (
-    <FormGroup>
+    <FormGroup style={{ marginLeft: 8 }}>
       {OPTIONS.map((option, i) => (
         <FormControlLabel
           key={i}

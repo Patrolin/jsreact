@@ -574,7 +574,7 @@ function jsreact$renderJsxChildren(parent: VirtNode, child: JsReactNode, childOr
       if ($$typeof) keyRight = keyRight ? `${keyRight}_${String($$typeof)}` : String($$typeof);
     }
   } else {
-    keyRight = typeof child + "$";
+    keyRight = (child === null ? "null" : typeof child) + "$";
   }
   if (keyLeft == null) {
     keyLeft = parent.childrenIndex++;
