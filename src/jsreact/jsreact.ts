@@ -837,7 +837,7 @@ function setMemoComponentDescendantsGcFlag(parent: VirtNode) {
 }
 function unmountUnusedDescendants(parent: VirtNode, parentGcFlag: number, removeChildrenFromDOM: boolean) {
   for (const component of Object.values(parent.children)) {
-    if (component.flags !== parentGcFlag) {
+    if ((component.flags & FLAGS_GC) !== parentGcFlag) {
       delete parent.children[component.key]; /* delete old state */
       // run cleanup code
       for (const hook of component.hooks as Hook[]) {
