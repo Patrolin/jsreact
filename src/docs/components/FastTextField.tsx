@@ -33,7 +33,8 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
   for (const k of Object.keys(cache.current.staticEventHandlers)) {
     cache.current.currentEventHandlers[k] = (props as Record<string, any>)[k];
   }
-  const SLOW_MEMO = import.meta.env.JSREACT_SLOW_MEMO === "true";
+  const env = import.meta.env;
+  const SLOW_MEMO = "JSREACT_SLOW_MEMO" in env && env.JSREACT_SLOW_MEMO === "true";
   /* NOTE: MUI TextField needs to rerender twice if you change whether the value is filled... */
   const wasFilled = cache.current.wasFilled && !SLOW_MEMO;
   cache.current.wasFilled = Boolean(props.value);
