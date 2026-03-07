@@ -52,7 +52,6 @@ const FastTextFieldMemo = memo(
 function deepEquals(a: any, b: any): boolean {
   if (typeof a !== "object" || typeof b !== "object") return Object.is(a, b);
   const keys = new Set([...Object.keys(a), ...Object.keys(a)]);
-  return Array.from(keys).every((k) => {
-    return deepEquals(a[k], b[k]);
-  });
+  for (const k of keys.keys()) if (!deepEquals(a[k], b[k])) return false;
+  return true;
 }
