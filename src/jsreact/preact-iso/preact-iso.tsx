@@ -1,8 +1,15 @@
 import { createContext, FC, Fragment, PropsWithChildren, useContext, useRef } from "react";
+import { useRerender } from "../jsreact";
 
-// LocationProvider
+// LocationContext
 function route(url: string, replace?: boolean): void {
-  throw new Error("route() not yet implemented in jsreact!");
+  const rerender = useRerender();
+  if (replace) {
+    window.history.replaceState(undefined, "", url);
+  } else {
+    window.history.pushState(undefined, "", url);
+  }
+  rerender();
 }
 type LocationContextType = {
   pathname: string;
@@ -11,6 +18,8 @@ type LocationContextType = {
   route: typeof route;
 };
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
+
+// LocationProvider
 type LocationProviderProps = PropsWithChildren<{}>;
 export const LocationProvider: FC<LocationProviderProps> = (props) => {
   const locationRef = useRef<LocationContextType>({

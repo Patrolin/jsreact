@@ -1,4 +1,4 @@
-// jsreact v1.0.0
+// jsreact v1.1
 import type React from "react";
 
 // utils

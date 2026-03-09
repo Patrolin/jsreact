@@ -2,8 +2,9 @@ import { FC } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import { routes } from "./routes";
+import { LocationProvider } from "@/jsreact/preact-iso";
 
-const App: FC<{ foobar: string }> = () => {
+const Router: FC = () => {
   const currentPath = window.location.pathname || "/";
   if (currentPath === "/") {
     return (
@@ -24,5 +25,12 @@ const App: FC<{ foobar: string }> = () => {
     }
   }
 };
+const App: FC = () => {
+  return (
+    <LocationProvider>
+      <Router />
+    </LocationProvider>
+  );
+};
 const root = createRoot(document.querySelector("#app")!);
-root.render(<App foobar="" />);
+root.render(<App />);

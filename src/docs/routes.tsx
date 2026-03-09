@@ -21,6 +21,7 @@ import { RTG_CSSTransitionPage } from "./pages/tests/rtg/RTG_CSSTransitionPage";
 import { RTG_TransitionGroupPage } from "./pages/tests/rtg/RTG_TransitionGroupPage";
 import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
 import { SubmitCorrectnessTest } from "./pages/tests/SubmitCorrectnessTest";
+import { PreactIsoRoutePage } from "./pages/tests/PreactIsoRoutePage";
 
 type Route = {
   path: string;
@@ -67,6 +68,11 @@ export const routes: Route[] = [
     path: "/react-is",
     label: "react-is test",
     component: ReactIsTestPage,
+  },
+  {
+    path: "/route",
+    label: "preact-iso route()",
+    component: PreactIsoRoutePage,
   },
   {
     path: "/portal",
