@@ -71,10 +71,10 @@ export const Router: FC<PropsWithChildren<RouterProps>> = (props) => {
   if (!Array.isArray(children)) return;
   const { pathname, url, query } = useLocation();
   let newParams = {} as Record<string, string>;
-  let selectedRoute: RouteProps | undefined;
-  let defaultRoute: RouteProps | undefined;
+  let selectedRoute: RouteProps<any> | undefined;
+  let defaultRoute: RouteProps<any> | undefined;
   for (let child of children) {
-    const route = child.props as RouteProps;
+    const route = child.props as RouteProps<any>;
     const { path, default: isDefault } = route;
     newParams = {};
     if (isDefault || path === "*") {
