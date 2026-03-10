@@ -47,8 +47,9 @@ export function useLocation(): LocationContextType {
 }
 
 // router
-type RouteProps = { path?: string; default?: boolean; component: React.JSXElementConstructor<any> };
-export const Route = Fragment as FC<RouteProps>;
+type RoutableProps = { path: string; default?: false } | { path?: never; default: true };
+export type RouteProps<Props> = RoutableProps & { component: React.JSXElementConstructor<Props> };
+export const Route = Fragment as FC<RouteProps<any>>;
 
 type RouterContextType = {
   path: string;
