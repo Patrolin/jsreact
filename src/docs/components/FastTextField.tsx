@@ -35,7 +35,7 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
   }
   const env = import.meta.env;
   const SLOW_MEMO = env.PRESET_NAME !== "jsreact" || env.JSREACT_SLOW_MEMO === "true";
-  console.log("ayaya.SLOW_MEMO", SLOW_MEMO);
+  //console.log("ayaya.SLOW_MEMO", SLOW_MEMO);
   /* NOTE: MUI TextField needs to rerender twice if you change whether the value is filled... */
   const wasFilled = cache.current.wasFilled && !SLOW_MEMO;
   cache.current.wasFilled = Boolean(props.value);
@@ -46,7 +46,7 @@ export const FastTextField: FC<TextFieldProps> = (props) => {
 const FastTextFieldMemo = memo(
   (props: TextFieldProps & { wasFilled: boolean; didBlur: boolean }) => {
     const { wasFilled, didBlur, ...rest } = props;
-    console.log("FastTextFieldMemo");
+    //console.log("FastTextFieldMemo");
     return <TextField {...rest} />;
   },
   (a: Record<string, any>, b: Record<string, any>) => {
