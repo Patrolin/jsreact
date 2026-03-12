@@ -1,15 +1,11 @@
-import { FastTextField } from "@/docs/components/FastTextField";
 import { TextField } from "@mui/material";
 import { FC, useState } from "react";
 
-export const MUI_TextFieldPage: FC = () => {
-  const [lastName, setLastName] = useState("");
+export const MUI_TextAreaPage: FC = () => {
   const [comment, setComment] = useState("");
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 16, padding: 16 }}>
-      {/*<TextField label="First name" />
-      <TextField label="Last name" value={lastName} onChange={(event) => setLastName(event.target.value)} />*/}
-      <FastTextField
+      <TextField
         label="Comment"
         fullWidth
         multiline

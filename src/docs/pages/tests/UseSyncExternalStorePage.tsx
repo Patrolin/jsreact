@@ -1,6 +1,6 @@
-import React from "react";
+import React, { FC } from "react";
 
-export default function UseSyncExternalStorePage() {
+export const UseSyncExternalStorePage: FC = () => {
   const foo = React.useSyncExternalStore(subscribe, getSnapshot);
   console.log("ayaya.UseSyncExternalStorePage");
   return (

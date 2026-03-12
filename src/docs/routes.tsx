@@ -7,7 +7,7 @@ import { MUIX_DatePickerPage } from "./pages/tests/mui-x/MUIX_DatePickerPage";
 import { MUI_ButtonPage } from "./pages/tests/mui/MUI_ButtonPage";
 import { MUI_CheckboxPage } from "./pages/tests/mui/MUI_CheckboxPage";
 import { MUI_ControlledInputPage } from "./pages/tests/mui/MUI_ControlledInputPage";
-import { MUI_TextFieldPage } from "./pages/tests/mui/MUI_TextFieldPage";
+import { MUI_TextAreaPage } from "./pages/tests/mui/MUI_TextAreaPage";
 import { MUI_PopperPage } from "./pages/tests/mui/MUI_PopperPage";
 import { MUI_PortalPage } from "./pages/tests/mui/MUI_PortalPage";
 import { MUI_RadioPage } from "./pages/tests/mui/MUI_RadioPage";
@@ -23,7 +23,7 @@ import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
 import { SubmitCorrectnessTest } from "./pages/tests/SubmitCorrectnessTest";
 import { PreactIsoRoutePage } from "./pages/tests/PreactIsoRoutePage";
 import { RHF_TestPage } from "./pages/tests/react-hook-form/RHF_TestPage";
-import UseSyncExternalStorePage from "./pages/tests/useSyncExternalStorePage";
+import { UseSyncExternalStorePage } from "./pages/tests/UseSyncExternalStorePage";
 
 type Route = {
   path: string;
@@ -124,7 +124,7 @@ export const routes: Route[] = [
   {
     path: "/textField",
     label: "MUI TextField",
-    component: MUI_TextFieldPage,
+    component: MUI_TextAreaPage,
   },
   {
     path: "/stack",
