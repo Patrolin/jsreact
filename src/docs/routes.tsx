@@ -22,6 +22,7 @@ import { RTG_TransitionGroupPage } from "./pages/tests/rtg/RTG_TransitionGroupPa
 import { RTG_TransitionPage } from "./pages/tests/rtg/RTG_TransitionPage";
 import { SubmitCorrectnessTest } from "./pages/tests/SubmitCorrectnessTest";
 import { PreactIsoRoutePage } from "./pages/tests/PreactIsoRoutePage";
+import { RHF_TestPage } from "./pages/tests/react-hook-form/RHF_TestPage";
 
 type Route = {
   path: string;
@@ -138,6 +139,11 @@ export const routes: Route[] = [
     path: "/muix-datePicker",
     label: "MUI X DatePicker",
     component: MUIX_DatePickerPage,
+  },
+  {
+    path: "/rhf",
+    label: "react-hook-form",
+    component: RHF_TestPage,
   },
   {
     path: "/benchmarks/bigForm",
