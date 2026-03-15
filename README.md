@@ -38,39 +38,26 @@ A reimplementation of React that disallows multiple rerenders per frame.
 3) If your app takes too long to render (>1 monitor frame), then we stall future renders.
 
 ### But doesn't this break buttons and inputs? [⤴](#jsreact)
-No, take the following code for a button:
-```tsx
-  const [state, setState] = useState(0);
-  return (
-    <button onClick={() => setState(state + 1)}>
-      state: {state}
-    </button>
-  );
-```
-The slowest refresh rate of a monitor is 30Hz (or 20Hz for ancient CRTs), while the fastest a human can reasonably click is ~10 times per second, this allows us to do at least 3 renders in between mouse clicks - plenty of time to update the onClick (unless your app is horrendously slow, but technically you can always do a `onClick={() => setState((currentState) => currentState + 1)}`, which updates instantly).
-
-Now take this code for a text input:
-```tsx
-  const [username, setUsername] = useState("");
-  return (<>
-    <span>username: {username}</span>
-    <input onChange={(event) => setUsername(event.target.value)} />
-  </>);
-```
-Since browsers update `event.target.value` instantly, we always get the correct value, which we schedule for the next render in `setUsername()`.
-
-You might think that there is still a problem with the `onChange` event. Since this event only fires when you unfocus the input,
-the user could type into an input and then immediately click a submit button. If you naively use a `useState()`, here
-then the submit would get an incorrect (old) value.
+Take this code for a text input:
 ```tsx
   const [username, setUsername] = useState("");
   return (<>
     <input onChange={(event) => setUsername(event.target.value)} />
-    <button onClick={() => console.log(username)}>Submit</button>
+    <button onClick={() => console.log("submit", username)}>Submit</button>
   </>);
 ```
-However, browsers never actually do this, they schedule the rerender in between `onBlur` and `onMouseUp` events,
-which means the `onClick` event always gets the correct value.
+Browsers delay `onClick` events until the next frame, so we always get the correct value.
+
+However, if you do:
+```tsx
+  const [username, setUsername] = useState("");
+  <form onSubmit={() => console.log("submit", username)}>
+    <input onChange={(event) => setUsername(event.target.value)} />
+    <button type="submit">Submit</button>
+  </form>
+```
+then clicking Submit works correctly, but pressing Enter causes the form to be submitted with an old value.
+
 
 ### But doesn't this break existing React libraries? [⤴](#jsreact)
 No, `@mui/material` relies on `react-transition-group`, which relies on dumb legacy `Component` class apis, but it still works perfectly under jsreact,
