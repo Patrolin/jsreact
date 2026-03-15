@@ -3,11 +3,8 @@ import { createContext, FC, Fragment, PropsWithChildren, useContext, useReducer,
 // LocationContext
 function route(url: string, replace?: boolean): void {
   const [_, rerender] = useReducer((v) => v, undefined);
-  if (replace) {
-    window.history.replaceState(undefined, "", url);
-  } else {
-    window.history.pushState(undefined, "", url);
-  }
+  if (replace) window.history.replaceState(undefined, "", url);
+  else window.history.pushState(undefined, "", url);
   rerender();
 }
 type LocationContextType = {
