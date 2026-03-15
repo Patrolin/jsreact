@@ -2,7 +2,7 @@
 A reimplementation of React that disallows multiple rerenders per frame.
 
 - [How is this achieved?](#how-is-this-achieved-)
-  - [But doesn't this break buttons and inputs?][#but-doesnt-this-break-buttons-and-inputs-]
+  - [But doesn't this break buttons and inputs?](#but-doesnt-this-break-buttons-and-inputs-)
   - [Differences to React](#differences-to-react-)
 - [Benchmarks](#benchmarks-)
 - [What we don't support](#what-we-dont-support-)
@@ -64,7 +64,7 @@ There are 3 different ways to fix this:
 1) Enable `JSREACT_MAP_ONCHANGE_TO_ONINPUT` (technically not a full fix, but probably enough in practice)
 2) Enable `JSREACT_SLOW_EVENT_HANDLERS`
 3) Use a direct reference to the state instead, like:
-   ```tsx
+ ```tsx
     export function useChangeState<T extends Record<string, any>>(defaultState: T): [T, (diff: Partial<T>) => void] {
       /* NOTE: React doesn't export a rerender function, so we do this workaround */
       const [state, rerender] = useReducer((v) => v, defaultState);
@@ -84,7 +84,7 @@ There are 3 different ways to fix this:
       <input onChange={(event) => changeState({username: event.target.value})} />
       <button type="submit">Submit</button>
     </form>
-  ```
+```
 
 
 ### But doesn't this break existing React libraries? [⤴](#jsreact)
