@@ -116,7 +116,7 @@ But the order between different components is not defined, and both we and React
 2) See also: `JSREACT_SLOW_EVENT_HANDLERS`, `JSREACT_SLOW_MEMO`, `JSREACT_MAP_ONCHANGE_TO_ONINPUT` in [Environment variables](#environment-variables-)
 
 ## Benchmarks [⤴](#jsreact)
-Probably the most interesting benchmark is BigTablePage.tsx:
+Probably the most interesting benchmark is [BigTablePage.tsx](src/docs/pages/benchmarks/BigTablePage.tsx):
 |test \            | React      | Preact     | jsreact   |
 |------------------|------------|------------|-----------|
 |Infrequent render | 288-312 ms | 120-160 ms | 0 ms      |
@@ -128,7 +128,7 @@ All benchmarks are done after reloading the page, so that they are not affected 
 
 Initial load is dominated by the bundler (e.g. vite) in dev mode, which is outside the scope of this project.
 
-Now 104 ms is still way too long, but this is caused by the fact we are using the MUI library (which is very slow) for inputs and tables. If we only use fast components (e.g. HTML elements), then we get BigTablePageWithHTMLElements.tsx:
+Now 104 ms is still way too long, but this is caused by the fact we are using the MUI library (which is very slow) for inputs and tables. If we only use fast components (e.g. HTML elements), then we get [BigTablePageWithHTMLElements.tsx](src/docs/pages/benchmarks/BigTablePageWithHTMLElements.tsx):
 |test \            | React      | Preact     | jsreact   |
 |------------------|------------|------------|-----------|
 |Infrequent render | 104-136 ms | 48-104 ms  | 0 ms      |
