@@ -27,6 +27,8 @@ import { UseSyncExternalStorePage } from "./pages/tests/UseSyncExternalStorePage
 import { BigTablePage } from "./pages/benchmarks/BigTablePage";
 import { BigTablePageWithHTMLElements } from "./pages/benchmarks/BigTablePageWithHTMLElements";
 import { MantineDemoPage } from "./pages/tests/mantine/MantineDemoPage";
+import { BigFormPageWithMantine } from "./pages/benchmarks/BigFormPageWithMantine";
+import { BigTablePageWithMantine } from "./pages/benchmarks/BigTablePageWithMantine";
 
 type Route = {
   path: string;
@@ -165,6 +167,11 @@ export const routes: Route[] = [
     component: BigFormPage,
   },
   {
+    path: "/benchmarks/bigForm/mantine",
+    label: "Big form with Mantine",
+    component: BigFormPageWithMantine,
+  },
+  {
     path: "/benchmarks/bigForm/memo",
     label: "Big form with memo()",
     component: BigFormPageWithMemo,
@@ -173,6 +180,11 @@ export const routes: Route[] = [
     path: "/benchmarks/bigTable",
     label: "Big table",
     component: BigTablePage,
+  },
+  {
+    path: "/benchmarks/bigTable/mantine",
+    label: "Big table with Mantine",
+    component: BigTablePageWithMantine,
   },
   {
     path: "/benchmarks/bigTable/html",
