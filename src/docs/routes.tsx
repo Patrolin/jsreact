@@ -26,6 +26,7 @@ import { RHF_TestPage } from "./pages/tests/react-hook-form/RHF_TestPage";
 import { UseSyncExternalStorePage } from "./pages/tests/UseSyncExternalStorePage";
 import { BigTablePage } from "./pages/benchmarks/BigTablePage";
 import { BigTablePageWithHTMLElements } from "./pages/benchmarks/BigTablePageWithHTMLElements";
+import { MantineDemoPage } from "./pages/tests/mantine/MantineDemoPage";
 
 type Route = {
   path: string;
@@ -152,6 +153,11 @@ export const routes: Route[] = [
     path: "/rhf",
     label: "react-hook-form",
     component: RHF_TestPage,
+  },
+  {
+    path: "/mantine",
+    label: "Mantine",
+    component: MantineDemoPage,
   },
   {
     path: "/benchmarks/bigForm",

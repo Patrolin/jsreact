@@ -1196,4 +1196,9 @@ export function useReducer<S, A>(reducer: (state: S, action: A) => S, initialArg
   hook.reducer = reducer;
   return [hook.state, hook.dispatch];
 }
-// TODO: more hooks?
+/* TODO: more hooks? */
+
+// obscure React stuff
+export function startTransition(callback: () => void) {
+  callback();
+}
