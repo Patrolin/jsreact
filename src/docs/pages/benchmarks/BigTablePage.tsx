@@ -24,14 +24,14 @@ function random_name() {
     .join("");
   return name[0].toUpperCase() + name.slice(1);
 }
-type Row = {
+export type Row = {
   firstName: string;
   lastName: string;
   email: string;
   age: number;
   didPay: boolean;
 };
-function generateRow(): Row {
+export function generateRow(): Row {
   const firstName = random_name();
   const lastName = random_name();
   const row: Row = {

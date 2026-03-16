@@ -116,14 +116,24 @@ But the order between different components is not defined, and both we and React
 2) See also: `JSREACT_SLOW_EVENT_HANDLERS`, `JSREACT_SLOW_MEMO`, `JSREACT_MAP_ONCHANGE_TO_ONINPUT` in [Environment variables](#environment-variables-)
 
 ## Benchmarks [⤴](#jsreact)
-For serving a basic page with some `<a>` links (`src/docs/index.tsx`) on localhost, the initial render takes 330 ms:
-  - jsreact takes 6 ms (3.5 ms of which is waiting on the browser)
-  - the vite bundler takes 22 ms to bundle the css
-  - the remaining 302 ms is the solely the browser's fault
+Probably the most interesting benchmark is BigTablePage.tsx:
+|test \            | React      | Preact     | jsreact   |
+|------------------|------------|------------|-----------|
+|Infrequent render | 288-312 ms | 120-160 ms | 0 ms      |
+|Frequent render   | 16-856 ms  | 32-456 ms  | 16-104 ms |
 
-Both React and Preact have very similar numbers here.
+All benchmarks are done after reloading the page, so that they are not affected by browsers going into low power mode when losing focus.
+- Infrequent render: Click to toggle sort direction of Age column.
+- Frequent render: Spam click to toggle sort direction of Age column.
 
-TODO: make a benchmark with lots of MUI TextFields
+Initial load is dominated by the bundler (e.g. vite) in dev mode, which is outside the scope of this project.
+
+Now 104 ms is still way too long, but this is caused by the fact we are using the MUI library (which is very slow) for inputs and tables. If we only use fast components (e.g. HTML elements), then we get BigTablePageWithHTMLElements.tsx:
+|test \            | React      | Preact     | jsreact   |
+|------------------|------------|------------|-----------|
+|Infrequent render | 104-136 ms | 48-104 ms  | 0 ms      |
+|Frequent render   | 16-136 ms  | 24-104 ms  | 0-24 ms   |
+
 
 ## What we don't support [⤴](#jsreact)
 1) React allows you to return `Promise<ReactNode>`:
