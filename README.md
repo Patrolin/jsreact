@@ -153,6 +153,13 @@ TODO: make a benchmark with lots of MUI TextFields
       "jsx": "react-jsx",
       "jsxImportSource": "react",
       "types": ["@types/react"],
+      // NOTE: If using preact, also add:
+      "baseUrl": ".",
+      "paths": {
+        "preact": ["src/jsreact/preact"],
+        "preact-iso": ["src/jsreact/preact-iso"],
+        "preact/compat": ["src/jsreact/preact/compat"]
+      },
     ```
 3) In your bundler, e.g. `vite.config.ts`, add:
     ```ts
@@ -161,14 +168,6 @@ TODO: make a benchmark with lots of MUI TextFields
       // NOTE: If using preact, also add:
       { find: "preact", replacement: path.resolve(__dirname, "src/jsreact/preact") },
       { find: "preact-iso", replacement: path.resolve(__dirname, "src/jsreact/preact-iso") },
-    ```
-4) If using preact, also add overrides for preact types into `.tsconfig.json`:
-    ```json
-      "baseUrl": ".",
-      "paths": {
-        "preact": ["src/jsreact/preact"],
-        "preact-iso": ["src/jsreact/preact-iso"]
-      }
     ```
 
 ## Usage [⤴](#jsreact)

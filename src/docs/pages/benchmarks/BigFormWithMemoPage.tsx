@@ -3,7 +3,7 @@ import { ChangeEvent, FC, useState } from "react";
 
 const TEXT_FIELD_COUNT = 120;
 
-export const BigFormWithMemo: FC = () => {
+export const BigFormWithMemoPage: FC = () => {
   const [values, setValues] = useState(
     Array(TEXT_FIELD_COUNT)
       .fill(undefined)

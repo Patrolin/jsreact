@@ -2,7 +2,8 @@ import { TextField } from "@mui/material";
 import { FC, InputEvent, useState } from "react";
 
 const TEXT_FIELD_COUNT = 120;
-export const BigForm: FC = () => {
+
+export const BigFormPage: FC = () => {
   const [values, setValues] = useState(
     Array(TEXT_FIELD_COUNT)
       .fill(undefined)

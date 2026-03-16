@@ -1,5 +1,5 @@
-import { BigForm } from "./pages/benchmarks/BigForm";
-import { BigFormWithMemo } from "./pages/benchmarks/BigFormWithMemo";
+import { BigFormPage } from "./pages/benchmarks/BigFormPage";
+import { BigFormWithMemoPage } from "./pages/benchmarks/BigFormWithMemoPage";
 import { BooleanPage } from "./pages/tests/BooleanPage";
 import { ComponentClassPage } from "./pages/tests/ComponentClassPage";
 import { MemoComponentPage } from "./pages/tests/MemoComponentPage";
@@ -24,6 +24,7 @@ import { SubmitCorrectnessTest } from "./pages/tests/SubmitCorrectnessTest";
 import { PreactIsoRoutePage } from "./pages/tests/PreactIsoRoutePage";
 import { RHF_TestPage } from "./pages/tests/react-hook-form/RHF_TestPage";
 import { UseSyncExternalStorePage } from "./pages/tests/UseSyncExternalStorePage";
+import { BigTablePage } from "./pages/benchmarks/BigTablePage";
 
 type Route = {
   path: string;
@@ -154,11 +155,16 @@ export const routes: Route[] = [
   {
     path: "/benchmarks/bigForm",
     label: "Big form",
-    component: BigForm,
+    component: BigFormPage,
   },
   {
     path: "/benchmarks/bigFormWithMemo",
     label: "Big form with memo()",
-    component: BigFormWithMemo,
+    component: BigFormWithMemoPage,
+  },
+  {
+    path: "/benchmarks/bigTable",
+    label: "Big table",
+    component: BigTablePage,
   },
 ];

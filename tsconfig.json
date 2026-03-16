@@ -18,6 +18,7 @@
       "@/*": ["src/*"],
       "preact": ["src/jsreact/preact"],
       "preact-iso": ["src/jsreact/preact-iso"],
+      "preact/compat": ["src/jsreact/preact/compat"],
       "@mui/material": ["src/docs/mock/mui-material"],
       "@mui/utils": ["src/docs/mock/mui-utils"],
       "@mui/system": ["src/docs/mock/mui-system"]

@@ -1,10 +1,13 @@
 :root {
 	font-family: Roboto, Arial, Helvetica, sans-serif;
 }
-html, body {
+html, body, #app {
 	width: 100%;
 	height: 100%;
 	margin: 0;
+}
+* {
+  box-sizing: border-box;
 }
 
 #app {
@@ -22,4 +25,206 @@ html, body {
 }
 .fade-exit.fade-exit-active {
 	opacity: 0.5;
+}
+
+/* FlexTable */
+.flex-table {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	background: #ffffff;
+	position: relative;
+	font-size: 14px;
+	font-family: Roboto, Helvetica, Arial, sans-serif;
+
+	&[data-centered="true"] {
+		.flex-table-header, .flex-table-row {
+			justify-content: center;
+		}
+	}
+}
+.flex-table-top {
+	flex: 1;
+	flex-direction: column;
+	justify-content: flex-start;
+	overflow: auto;
+}
+.flex-table-sticky {
+	position: sticky;
+	top: 0;
+  background: white;
+	z-index: 1; /* NOTE: required so that `position: relative` render below the header.. */
+	min-width: min-content; /* NOTE: required so that header is above rows when table is bigger than window size.. */
+}
+.flex-table-toolbar {
+	padding: 4px 4px 0 4px;
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+
+	/*& + .flex-table-header .flex-table-cell {
+		padding-top: 4px;
+	}*/
+}
+.flex-table-header {
+	& .flex-table-sort-wrapper {
+		color: rgb(34, 34, 34);
+		user-select: none;
+		display: flex;
+		flex-direction: column;
+	}
+	& .flex-table-header-buttons {
+		margin: -2px 0 0 0;
+		display: flex;
+		justify-content: flex-end;
+	}
+	& .flex-table-filter-button {
+		color: rgba(0, 0, 0, 0.5);
+		width: 18px;
+		height: 18px;
+		transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+	}
+	& .flex-table-sort-arrow {
+		color: rgba(0, 0, 0, 0.6);
+		width: 18px;
+		height: 18px;
+		transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, transform 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+	}
+	& .flex-table-dragger {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 14px;
+		cursor: col-resize;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		user-select: none; /* prevent drag to highlight on desktop */
+		touch-action: none; /* prevent drag to scroll on mobile */
+	}
+	& .flex-table-dragger-icon {
+		opacity: 0;
+		color: rgba(0, 0, 0, 0.6);
+		width: 16px;
+		height: 16px;
+	}
+	& .flex-table-cell {
+		justify-content: flex-start;
+		padding-block: 8px 4px;
+		padding-inline: 10px 9px;
+		position: relative;
+
+		/* label-direction */
+		&[data-label-direction="left"], &[data-label-direction='right'] {
+			padding-inline: 9px 9px;
+
+			& .flex-table-sort-wrapper {
+				gap: 2px;
+			}
+			& .flex-table-header-buttons {
+				margin: 0;
+			}
+		}
+		&[data-label-direction="left"] .flex-table-column-title {
+			writing-mode: sideways-rl;
+		}
+		&[data-label-direction="right"] .flex-table-column-title {
+			writing-mode: sideways-lr;
+		}
+		/* filter button */
+		&[data-filter="false"] {
+			& .flex-table-filter-button {
+				opacity: 0;
+			}
+			&:hover .flex-table-filter-button {
+				opacity: 0.5;
+			}
+		}
+		/* sort-arrow */
+		&[data-disable-sorting="false"] {
+			.flex-table-sort-wrapper {
+				margin-top: 9px;
+				cursor: pointer;
+			}
+			&:hover .flex-table-column-title {
+				opacity: 0.6;
+			}
+			&[data-sort="undefined"] {
+				& .flex-table-sort-arrow {
+					opacity: 0;
+				}
+				&:hover .flex-table-sort-arrow {
+					opacity: 0.5;
+				}
+			}
+			&[data-sort="desc"] .flex-table-sort-arrow {
+				transform: rotate(-180deg);
+			}
+		}
+		&[data-disable-sorting="true"] {
+			.flex-table-sort-wrapper {
+				margin-bottom: 9px;
+			}
+		}
+		/* dragger */
+		&:hover .flex-table-dragger-icon {
+			opacity: 0.6;
+		}
+	}
+}
+@media (hover: none) {
+	.flex-table-dragger-icon {
+		opacity: 0.6 !important;
+	}
+}
+.flex-table-header, .flex-table-row {
+	display: flex;
+	min-width: min-content; /* NOTE: fix, so that header is above rows */
+}
+.flex-table-header, .flex-table-row {
+	& > div {
+		border-bottom: 1px solid var(--row-borderColor, #e0e0e0);
+	}
+}
+.flex-table-row {
+	background: var(--row-background);
+
+	&[data-is-clickable="true"]:hover {
+		/*transition: background 0.05s ease-in-out;*/
+		background: var(--row-hoverBackground, #e0e0e0);
+		cursor: pointer;
+	}
+	& .flex-table-cell {
+    text-align: center;
+
+		&[data-align-cell="left"] {
+			justify-content: flex-start;
+		}
+		&[data-align-cell="right"] {
+			justify-content: flex-end;
+			padding-inline: 6px 9px;
+		}
+	}
+}
+.flex-table-cell {
+	min-height: 36px;
+	border-right: 1px solid var(--row-borderColor, #e0e0e0);
+	padding-inline: 10px 5px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	word-break: break-word;
+}
+/*.flex-table-cell:last-child {
+	border-right-color: transparent;
+}*/
+.flex-table-footer {
+	border-top: 1px solid #e0e0e0;
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
 }

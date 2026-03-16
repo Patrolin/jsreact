@@ -1,4 +1,4 @@
-// jsreact v1.1
+// jsreact v1.1.1
 import type React from "react";
 
 // utils
@@ -478,7 +478,10 @@ function createElementAndApplyDOMProps(component: VirtNode, desiredElementType: 
   if (style != null) {
     for (const [k, v] of Object.entries(style)) {
       /* NOTE: pass through `--${string}` and `-${string}` directly, else add "px" to non-unitless numbers. */
-      if (k.startsWith("-")) (element as HTMLElement).style.setProperty(k, v);
+      if (k.startsWith("-")) {
+        if (v != null) (element as HTMLElement).style.setProperty(k, v);
+        else (element as HTMLElement).style.removeProperty(k);
+      }
       else if (UNITLESS_CSS_PROPS.has(k)) (element as HTMLElement).style[k as any] = v;
       else (element as HTMLElement).style[k as any] = (typeof v === "number" ? `${v}px` : v);
     }
