@@ -1,6 +1,7 @@
-import { FlexTable, TableColumn } from "@/docs/components/FlexTable";
+import { FlexTable } from "@/docs/components/FlexTable";
 import { Button, Checkbox, createTheme, MantineProvider } from "@mantine/core";
 import { FC, useMemo, useState } from "react";
+import { getColumns } from "./BigTablePage";
 
 function random_bool(true_chance: number) {
   return Math.random() < true_chance;
@@ -53,44 +54,7 @@ export const BigTablePageWithMantine: FC = () => {
       .map(() => generateRow());
   }, []);
   const [rows, setRows] = useState(initialRows);
-  const columns: TableColumn<Row>[] = [
-    {
-      label: "#",
-      value: (row) => row._index + 1,
-      maxWidth: 60,
-    },
-    {
-      label: "First name",
-      value: (row) => row.firstName,
-    },
-    {
-      label: "Last name",
-      value: (row) => row.lastName,
-    },
-    {
-      label: "Age",
-      value: (row) => row.age,
-      maxWidth: 60,
-    },
-    {
-      label: "Email",
-      value: (row) => row.email,
-    },
-    {
-      label: "Did pay",
-      value: (row) => (row.didPay ? "ano" : "ne"),
-      renderCell: (row) => (
-        <Checkbox
-          checked={row.didPay}
-          onChange={() => {
-            const newRows = [...rows];
-            newRows.splice(row._index, 1, { ...row, didPay: !row.didPay });
-            setRows(newRows);
-          }}
-        />
-      ),
-    },
-  ];
+  const columns = getColumns(rows, setRows, (props) => <Checkbox {...props} />);
   return (
     <MantineProvider theme={theme}>
       <div style={{ width: "100%", height: "100%", padding: 16 }}>

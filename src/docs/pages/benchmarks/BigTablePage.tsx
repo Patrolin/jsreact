@@ -44,14 +44,12 @@ export function generateRow(): Row {
   return row;
 }
 
-export const BigTablePage: FC = () => {
-  const initialRows = useMemo(() => {
-    return Array(200)
-      .fill(undefined)
-      .map(() => generateRow());
-  }, []);
-  const [rows, setRows] = useState(initialRows);
-  const columns: TableColumn<Row>[] = [
+export function getColumns(
+  rows: Row[],
+  setRows: (newRows: Row[]) => void,
+  CheckboxComponent: FC<{ checked: boolean; onChange?: () => void }>
+): TableColumn<Row>[] {
+  return [
     {
       label: "#",
       value: (row) => row._index + 1,
@@ -78,7 +76,7 @@ export const BigTablePage: FC = () => {
       label: "Did pay",
       value: (row) => (row.didPay ? "ano" : "ne"),
       renderCell: (row) => (
-        <Checkbox
+        <CheckboxComponent
           checked={row.didPay}
           onChange={() => {
             const newRows = [...rows];
@@ -89,6 +87,15 @@ export const BigTablePage: FC = () => {
       ),
     },
   ];
+}
+export const BigTablePage: FC = () => {
+  const initialRows = useMemo(() => {
+    return Array(200)
+      .fill(undefined)
+      .map(() => generateRow());
+  }, []);
+  const [rows, setRows] = useState(initialRows);
+  const columns = getColumns(rows, setRows, (props) => <Checkbox {...props} />);
   return (
     <div style={{ width: "100%", height: "100%", padding: 16 }}>
       <FlexTable columns={columns} rows={rows} />
