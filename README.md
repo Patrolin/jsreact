@@ -159,7 +159,7 @@ Now 104 ms is still way too long, but this is caused by the fact we are using th
 ## Install [⤴](#jsreact)
 1) Copy `src/jsreact` into your project.
 2) In `tsconfig.json`, add:
-    ```json
+    ```jsonc
       "jsx": "react-jsx",
       "jsxImportSource": "react",
       "types": ["@types/react"],
